@@ -5,7 +5,9 @@ import { withBase } from './urls';
 export type Post = CollectionEntry<'posts'>;
 
 export async function publishedPosts(lang?: Lang): Promise<Post[]> {
-  const all = await getCollection('posts', ({ data }) => !data.draft);
+  // Drafts are excluded from ordinary builds. Private CI preview can opt in.
+  const includeDrafts = import.meta.env.BLOG_PREVIEW_DRAFTS === 'true';
+  const all = await getCollection('posts', ({ data }) => includeDrafts || !data.draft);
   return all
     .filter((post) => !lang || post.data.lang === lang)
     .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());

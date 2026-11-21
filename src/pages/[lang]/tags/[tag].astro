@@ -1,0 +1,19 @@
+---
+import { withBase } from '../../../lib/urls';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import PostList from '../../../components/PostList.astro';
+import { langs, text, type Lang } from '../../../config';
+import { publishedPosts, uniqueTags } from '../../../lib/posts';
+export async function getStaticPaths() {
+  const data = await Promise.all(langs.map(async (lang) =>
+    uniqueTags(await publishedPosts(lang)).map((tag) => ({ params: { lang, tag: tag.name } }))));
+  return data.flat();
+}
+const lang = Astro.params.lang as Lang;
+const tag = Astro.params.tag!;
+const posts = (await publishedPosts(lang)).filter((post) => post.data.tags.includes(tag));
+---
+<BaseLayout lang={lang} active="tags" title={tag}>
+  <header class="standard-heading"><a class="back-link" href={withBase(`/${lang}/tags/`)}>← {text[lang].tags}</a><h1>{tag}</h1><p>{posts.length} {lang === 'zh' ? '篇文章' : posts.length === 1 ? 'post' : 'posts'}</p></header>
+  <PostList posts={posts} lang={lang} />
+</BaseLayout>

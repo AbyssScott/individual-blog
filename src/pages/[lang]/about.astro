@@ -1,0 +1,13 @@
+---
+import { withBase } from '../../lib/urls';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { langs, text, type Lang } from '../../config';
+export function getStaticPaths() { return langs.map((lang) => ({ params: { lang } })); }
+const lang = Astro.params.lang as Lang;
+---
+<BaseLayout lang={lang} active="about" title={text[lang].about} translationPath={withBase(`/${lang === 'zh' ? 'en' : 'zh'}/about/`)}>
+  <header class="standard-heading"><p class="eyebrow">A LITTLE ABOUT THIS SPACE</p><h1>{text[lang].about}</h1></header>
+  <div class="prose about-prose">
+    {lang === 'zh' ? <><p>这是一个个人博客，用来记录阅读、研究、日常生活和偶然产生的想法。文章主题不受固定领域限制。</p><p>我通常先用中文写作，之后如果有时间和兴趣，再自行翻译成英文。两个语言版本不一定同时发表。</p></> : <><p>This is a personal weblog about reading, ideas, research, everyday life, and anything else worth writing down.</p><p>Most posts are written in Chinese first. I may translate some of them into English later; not every post will have a translation.</p></>}
+  </div>
+</BaseLayout>

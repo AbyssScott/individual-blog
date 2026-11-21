@@ -1,0 +1,23 @@
+---
+import '../styles/global.css';
+import { withBase } from '../lib/urls';
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>404 · Xiang's Blog</title>
+  </head>
+  <body>
+    <main class="language-landing">
+      <span class="landing-small">404 / NOT FOUND</span>
+      <h1>页面不存在。</h1>
+      <p>Sorry, this page does not exist.</p>
+      <div class="landing-langs">
+        <a href={withBase('/zh/')}>返回中文首页</a>
+        <a href={withBase('/en/')}>English home</a>
+      </div>
+    </main>
+  </body>
+</html>

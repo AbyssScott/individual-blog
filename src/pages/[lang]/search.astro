@@ -1,0 +1,31 @@
+---
+import { withBase } from '../../lib/urls';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { langs, text, type Lang } from '../../config';
+export function getStaticPaths() { return langs.map((lang) => ({ params: { lang } })); }
+const lang = Astro.params.lang as Lang;
+const searchBundle = withBase('/pagefind/');
+const resultBase = withBase('/');
+---
+<BaseLayout lang={lang} active="search" title={text[lang].search} translationPath={withBase(`/${lang === 'zh' ? 'en' : 'zh'}/search/`)}>
+  <link slot="head" rel="stylesheet" href={`${searchBundle}pagefind-ui.css`} />
+  <header class="standard-heading"><p class="eyebrow">FIND SOMETHING</p><h1>{text[lang].search}</h1><p>{text[lang].searchHint}</p></header>
+  <div id="search" class="pagefind-container" aria-live="polite" data-bundle={searchBundle} data-root={resultBase}></div>
+  <script is:inline type="module">
+    const container = document.getElementById('search');
+    const chinese = document.documentElement.lang.startsWith('zh');
+    try {
+      const { PagefindUI } = await import(`${container.dataset.bundle}pagefind-ui.js`);
+      new PagefindUI({
+        element: '#search', showImages: false, showSubResults: true,
+        baseUrl: container.dataset.root, bundlePath: container.dataset.bundle,
+        translations: {
+          placeholder: chinese ? '搜索中文文章…' : 'Search English posts…',
+          zero_results: chinese ? '没有找到符合 “[SEARCH_TERM]” 的文章。' : 'No results for “[SEARCH_TERM]”.',
+        },
+      });
+    } catch (error) {
+      if (container) container.textContent = chinese ? '请先运行 npm run build 生成搜索索引。' : 'Run npm run build to generate the search index.';
+    }
+  </script>
+</BaseLayout>

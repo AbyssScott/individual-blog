@@ -1,0 +1,56 @@
+---
+import '../styles/global.css';
+import 'katex/dist/katex.min.css';
+import { config, otherLang, type Lang } from '../config';
+import SiteHeader from '../components/SiteHeader.astro';
+import { withBase } from '../lib/urls';
+
+interface Props {
+  lang: Lang;
+  title?: string;
+  description?: string;
+  active?: string;
+  translationPath?: string | null;
+  canonicalPath?: string;
+  isPost?: boolean;
+}
+const { lang, title, description = config.description[lang], active, translationPath, canonicalPath, isPost = false } = Astro.props;
+const documentTitle = title ? `${title} · ${config.name[lang]}` : config.name[lang];
+const basePath = canonicalPath ?? Astro.url.pathname;
+const canonicalUrl = new URL(basePath, Astro.site ?? Astro.url).toString();
+---
+<!doctype html>
+<html lang={lang === 'zh' ? 'zh-CN' : 'en'}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content={description} />
+    <meta property="og:type" content={isPost ? 'article' : 'website'} />
+    <meta property="og:site_name" content={config.name[lang]} />
+    <meta property="og:title" content={documentTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="alternate" type="application/rss+xml" title={lang === 'zh' ? '中文 RSS' : 'English RSS'} href={withBase(`/${lang}/rss.xml`)} />
+    {translationPath && <link rel="alternate" hreflang={otherLang(lang) === 'zh' ? 'zh-CN' : 'en'} href={new URL(translationPath, Astro.site ?? Astro.url).toString()} />}
+    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <script is:inline>
+      (() => {
+        try {
+          const choice = localStorage.getItem('blog-theme');
+          document.documentElement.dataset.theme = choice === 'light' || choice === 'dark' ? choice :
+            'light';
+        } catch { document.documentElement.dataset.theme = 'light'; }
+      })();
+    </script>
+    <title>{documentTitle}</title>
+    <slot name="head" />
+  </head>
+  <body>
+    <SiteHeader lang={lang} active={active} translationPath={translationPath} />
+    <main id="main-content" class="page-wrap"><slot /></main>
+    <footer class="site-footer"><div class="footer-inner"><span>{config.footer[lang]}</span><a href={withBase(`/${lang}/rss.xml`)}>RSS</a></div></footer>
+    <script src={withBase('/scripts/theme.js')} defer></script>
+  </body>
+</html>

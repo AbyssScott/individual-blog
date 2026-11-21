@@ -1,0 +1,38 @@
+---
+import { withBase } from '../../../lib/urls';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Comments from '../../../components/Comments.astro';
+import { text, otherLang, type Lang } from '../../../config';
+import { publishedPosts, postPath, tagPath, formatDate, type Post } from '../../../lib/posts';
+import { render } from 'astro:content';
+
+interface Props { post: Post; }
+export async function getStaticPaths() {
+  const posts = await publishedPosts();
+  return posts.map((post) => ({
+    params: { lang: post.data.lang, slug: post.id.split('/').slice(1).join('/') },
+    props: { post },
+  }));
+}
+const { post } = Astro.props;
+const lang = post.data.lang as Lang;
+const posts = await publishedPosts();
+const translation = posts.find((p) => p.data.translationKey === post.data.translationKey && p.data.lang === otherLang(lang));
+const { Content } = await render(post);
+const translationPath = translation ? postPath(translation) : null;
+---
+<BaseLayout lang={lang} active="home" title={post.data.title} description={post.data.description} isPost={true} translationPath={translationPath} canonicalPath={postPath(post)}>
+  <article class="post-page">
+    <a href={withBase(`/${lang}/`)} class="back-link">← {text[lang].back}</a>
+    <header class="article-heading">
+      <time datetime={post.data.date.toISOString().slice(0,10)}>{formatDate(post.data.date, lang)}</time>
+      <h1 data-pagefind-meta="title">{post.data.title}</h1>
+      <p class="article-summary">{post.data.description}</p>
+      <div class="article-tags">{post.data.tags.map((tag) => <a href={tagPath(lang, tag)}>{tag}</a>)}</div>
+      {translation ? <p class="translation-note"><a href={translationPath!}>{text[lang].translated} ↗</a>{lang === 'en' && <span> · {text[lang].originallyChinese}</span>}</p> : <p class="translation-note muted">{text[lang].missing}</p>}
+    </header>
+    <div class="article-body prose" data-pagefind-body><Content /></div>
+    <div class="post-endmark" aria-hidden="true">✳</div>
+    <Comments lang={lang} translationKey={post.data.translationKey} />
+  </article>
+</BaseLayout>

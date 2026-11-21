@@ -1,0 +1,15 @@
+---
+import { withBase } from '../../lib/urls';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { langs, text, type Lang } from '../../config';
+import { publishedPosts, postPath, formatDate } from '../../lib/posts';
+export function getStaticPaths() { return langs.map((lang) => ({ params: { lang } })); }
+const lang = Astro.params.lang as Lang;
+const posts = await publishedPosts(lang);
+const grouped = Object.entries(Object.groupBy(posts, (p) => p.data.date.getUTCFullYear().toString()))
+  .sort(([a], [b]) => Number(b) - Number(a));
+---
+<BaseLayout lang={lang} active="archive" title={text[lang].archive} translationPath={withBase(`/${lang === 'zh' ? 'en' : 'zh'}/archive/`)}>
+  <header class="standard-heading"><p class="eyebrow">INDEX</p><h1>{text[lang].archive}</h1><p>{lang === 'zh' ? '按年份整理的全部文章。' : 'All writing, organized by year.'}</p></header>
+  {grouped.length ? grouped.map(([year, items]) => <section class="archive-year"><h2>{year}</h2><ul class="archive-items">{items?.map((post) => <li><time datetime={post.data.date.toISOString().slice(0,10)}>{formatDate(post.data.date, lang)}</time><a href={postPath(post)}>{post.data.title}</a></li>)}</ul></section>) : <p>{text[lang].empty}</p>}
+</BaseLayout>

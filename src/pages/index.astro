@@ -1,0 +1,28 @@
+---
+import '../styles/global.css';
+import { config } from '../config';
+import { withBase } from '../lib/urls';
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>选择语言 · Xiang's Blog</title>
+    <meta name="description" content="选择中文或英文阅读这个博客 / Choose Chinese or English" />
+    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <script is:inline>
+      (()=>{try{const choice=localStorage.getItem('blog-theme');document.documentElement.dataset.theme=choice==='light'||choice==='dark'?choice:'light'}catch{}})();
+    </script>
+  </head>
+  <body>
+    <main class="language-landing">
+      <span class="landing-small">PERSONAL WEBLOG</span>
+      <h1>{config.name.zh}<span class="wordmark-dot">.</span></h1>
+      <p>{config.description.zh}</p>
+      <div class="landing-langs"><a href={withBase('/zh/')} data-language-switch="zh">中文 <span aria-hidden="true">↗</span></a><a href={withBase('/en/')} data-language-switch="en">English <span aria-hidden="true">↗</span></a></div>
+      <span class="landing-foot">Writing, reading, and other things.</span>
+    </main>
+    <script src={withBase('/scripts/theme.js')} defer></script>
+  </body>
+</html>

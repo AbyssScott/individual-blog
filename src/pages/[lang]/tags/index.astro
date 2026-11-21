@@ -1,0 +1,13 @@
+---
+import { withBase } from '../../../lib/urls';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { langs, text, type Lang } from '../../../config';
+import { publishedPosts, uniqueTags, tagPath } from '../../../lib/posts';
+export function getStaticPaths() { return langs.map((lang) => ({ params: { lang } })); }
+const lang = Astro.params.lang as Lang;
+const tags = uniqueTags(await publishedPosts(lang));
+---
+<BaseLayout lang={lang} active="tags" title={text[lang].tags} translationPath={withBase(`/${lang === 'zh' ? 'en' : 'zh'}/tags/`)}>
+  <header class="standard-heading"><p class="eyebrow">TOPICS</p><h1>{text[lang].tags}</h1><p>{lang === 'zh' ? '按主题浏览文章。' : 'Browse writing by topic.'}</p></header>
+  <div class="tag-cloud">{tags.map(({ name, count }) => <a href={tagPath(lang, name)}>{name}<span>{count}</span></a>)}</div>
+</BaseLayout>

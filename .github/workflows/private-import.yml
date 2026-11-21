@@ -20,9 +20,9 @@ jobs:
           base64 --decode .source-seed.txt > /tmp/individual-blog-source.tar.xz
           tar -xJf /tmp/individual-blog-source.tar.xz -C .
           test -f package.json
-          test -f .github/workflows/deploy.yml.disabled
+          test -f deployment/deploy.yml.template
           test ! -f .github/workflows/deploy.yml
-          rm .source-seed.txt .github/workflows/private-import.yml
+          rm .source-seed.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A

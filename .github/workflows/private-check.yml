@@ -1,4 +1,5 @@
-name: Validate private Astro blog (no publishing)
+name: Validate and package private Astro preview (no publishing)
+
 on:
   push:
     branches: [main]
@@ -21,5 +22,18 @@ jobs:
         run: npm run validate
       - name: Type-check Astro
         run: npm run check
-      - name: Build static files locally in CI only
+      - name: Verify safe build excludes unpublished drafts
         run: npm run build
+      - name: Build private preview including demonstration drafts
+        env:
+          BLOG_PREVIEW_DRAFTS: 'true'
+        run: npm run build
+      - name: Package local-only private preview
+        run: python3 scripts/package-private-preview.py
+      - name: Upload private preview artifact (not a website deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiangs-blog-private-preview
+          path: private-preview/
+          if-no-files-found: error
+          retention-days: 7

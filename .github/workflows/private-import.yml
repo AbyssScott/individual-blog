@@ -1,0 +1,41 @@
+name: Private source import (one-time)
+on:
+  push:
+    branches: [main]
+    paths:
+      - .source-seed.txt
+
+permissions:
+  contents: write
+
+jobs:
+  import-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Import Astro source privately
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .source-seed.txt > /tmp/individual-blog-source.tar.xz
+          tar -xJf /tmp/individual-blog-source.tar.xz -C .
+          test -f package.json
+          test -f .github/workflows/deploy.yml.disabled
+          test ! -f .github/workflows/deploy.yml
+          rm .source-seed.txt .github/workflows/private-import.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Import Xiang's Blog source privately (Pages disabled)"
+          git push
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate and build privately
+        run: |
+          npm run validate
+          npm run check
+          npm run build

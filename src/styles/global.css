@@ -152,3 +152,23 @@ button { cursor: pointer; }
 .giscus, .giscus-frame { background: transparent; }
 a, .icon-button, .language-link { transition: color .15s ease, background-color .15s ease, border-color .15s ease; }
 @media (prefers-reduced-motion: reduce) { a, .icon-button, .language-link { transition: none; } }
+
+/* Reading details: lists, footnotes, captions and narrow tables. */
+.prose ul, .prose ol { padding-inline-start: 1.6em; margin: 1.2em 0; }
+.prose li { padding-inline-start: .2em; }
+.prose li + li { margin-top: .3em; }
+.prose hr { border: 0; border-top: 1px solid var(--line); margin: 2.6em 0; }
+.prose img { display: block; margin: 1.6em auto; border-radius: 4px; }
+.prose figure { margin: 2em 0; }
+.prose figcaption { font-size: .82em; text-align: center; color: var(--secondary); }
+.prose table { margin: 1.7em 0; }
+.prose th { color: var(--heading); font-weight: 650; }
+.prose td, .prose th { vertical-align: top; }
+.prose .footnotes { margin-top: 3.2em; padding-top: 1em; border-top: 1px solid var(--line); color: var(--secondary); font-size: .84em; line-height: 1.75; }
+.prose .footnotes hr { display: none; }
+.prose .footnotes ol { margin-top: .9em; }
+.prose .footnotes p { margin: .4em 0; }
+.prose .footnote-backref { color: var(--accent); text-decoration: none; }
+@media (max-width: 730px) {
+  .prose table { display: block; max-width: 100%; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+}

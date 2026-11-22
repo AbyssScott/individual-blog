@@ -8,6 +8,6 @@ const lang = Astro.params.lang as Lang;
 <BaseLayout lang={lang} active="about" title={text[lang].about} translationPath={withBase(`/${lang === 'zh' ? 'en' : 'zh'}/about/`)}>
   <header class="standard-heading"><p class="eyebrow">A LITTLE ABOUT THIS SPACE</p><h1>{text[lang].about}</h1></header>
   <div class="prose about-prose">
-    {lang === 'zh' ? <><p>这是一个个人博客，用来记录阅读、研究、日常生活和偶然产生的想法。文章主题不受固定领域限制。</p><p>我通常先用中文写作，之后如果有时间和兴趣，再自行翻译成英文。两个语言版本不一定同时发表。</p></> : <><p>This is a personal weblog about reading, ideas, research, everyday life, and anything else worth writing down.</p><p>Most posts are written in Chinese first. I may translate some of them into English later; not every post will have a translation.</p></>}
+    {lang === 'zh' ? <><p>这里是 Xiang's Blog，一个记录个人想法的地方。我会写一些读过的东西、感兴趣的问题和日常观察；其中有些与学术有关，也有些没有。这里不限定主题，也不要求每篇文章都得出完整结论。</p><p>文章通常先用中文写作。部分文章会由我自己翻译成英文，因此两种语言的内容和更新时间可能不同。</p></> : <><p>This is Xiang's Blog, a place for personal writing. I'll post about things I've read, questions that interest me, and observations from everyday life. Some posts will be academic; others won't. Not every piece needs to reach a firm conclusion.</p><p>I usually write in Chinese first and translate some posts into English myself. The two language versions may appear or be updated at different times.</p></>}
   </div>
 </BaseLayout>

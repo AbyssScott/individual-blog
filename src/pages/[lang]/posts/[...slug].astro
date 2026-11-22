@@ -27,7 +27,7 @@ const translationPath = translation ? postPath(translation) : null;
     <header class="article-heading">
       <time datetime={post.data.date.toISOString().slice(0,10)}>{formatDate(post.data.date, lang)}</time>
       <h1 data-pagefind-meta="title">{post.data.title}</h1>
-      <p class="article-summary">{post.data.description}</p>
+      {post.data.description && <p class="article-summary">{post.data.description}</p>}
       <div class="article-tags">{post.data.tags.map((tag) => <a href={tagPath(lang, tag)}>{tag}</a>)}</div>
       {translation ? <p class="translation-note"><a href={translationPath!}>{text[lang].translated} ↗</a>{lang === 'en' && <span> · {text[lang].originallyChinese}</span>}</p> : <p class="translation-note muted">{text[lang].missing}</p>}
     </header>

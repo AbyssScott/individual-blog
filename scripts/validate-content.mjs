@@ -11,7 +11,7 @@ for (const lang of ['zh','en']) {
     if (!frontmatter) throw new Error(`${lang}/${file}: missing YAML frontmatter`);
     const field = (key) => frontmatter.match(new RegExp(`^${key}:\\s*["']?([^\\n"']+)`, 'm'))?.[1]?.trim();
     if (field('lang') !== lang) throw new Error(`${lang}/${file}: lang must be ${lang}`);
-    for (const required of ['title', 'description', 'date', 'translationKey']) {
+    for (const required of ['title', 'date', 'translationKey']) {
       if (!field(required)) throw new Error(`${lang}/${file}: missing ${required}`);
     }
     const key = `${lang}/${field('translationKey')}`;

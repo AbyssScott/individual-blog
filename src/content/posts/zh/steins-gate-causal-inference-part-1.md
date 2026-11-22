@@ -1,9 +1,9 @@
 ---
-title: "《命运石之门》与因果推断（上）：冈部伦太郎是个作弊者！"
+title: "《命运石之门》与因果推断（上）"
 date: 2026-11-22
 lang: zh
 translationKey: steins-gate-causal-inference-part-1
-tags: ["因果推断", "思想实验", "命运石之门"]
+tags: ["因果推断", "动漫/二次元", "游戏", "实验", "虚幻世界的因果推断系列"]
 draft: false
 ---
 

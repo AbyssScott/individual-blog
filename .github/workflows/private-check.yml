@@ -26,7 +26,7 @@ jobs:
         run: npm run build
       - name: Build private preview including demonstration drafts
         env:
-          BLOG_PREVIEW_DRAFTS: 'true'
+          VITE_BLOG_PREVIEW_DRAFTS: 'true'
         run: npm run build
       - name: Package local-only private preview
         run: python3 scripts/package-private-preview.py

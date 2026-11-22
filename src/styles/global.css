@@ -95,7 +95,7 @@ button { cursor: pointer; }
 .article-tags a { font-size: 11px; padding: 2px 10px; }
 .translation-note { font-size: 12px; color: var(--secondary); margin: 8px 0 0; }
 .translation-note a { color: var(--accent); }
-.prose { font-size: 17px; line-height: 2.02; overflow-wrap: break-word; }
+.prose { font-size: 18px; line-height: 1.9; overflow-wrap: break-word; }
 .prose > :first-child { margin-top: 0; }
 .prose h2,.prose h3 { color: var(--heading); font-family: var(--heading-font); font-weight: 600; line-height: 1.5; margin: 2.2em 0 .8em; }
 .prose h2 { font-size: 27px; }
@@ -139,7 +139,7 @@ button { cursor: pointer; }
   .post-page { padding-top: 45px; }
   .article-heading { padding-top: 28px; }
   .article-heading h1 { font-size: 34px; }
-  .prose { font-size: 16px; line-height: 1.95; }
+  .prose { font-size: 17px; line-height: 1.9; }
   .standard-heading { padding-top: 65px; }
   .standard-heading h1 { font-size: 40px; }
   .archive-items li { grid-template-columns: 1fr; gap: 3px; }

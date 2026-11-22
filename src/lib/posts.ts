@@ -28,7 +28,7 @@ export function uniqueTags(posts: Post[]): { name: string; count: number }[] {
 }
 
 export function tagPath(lang: Lang, tag: string): string {
-  return withBase(`/${lang}/tags/${encodeURIComponent(tag)}/`);
+  return withBase(`/${lang}/tags/${tag.split('/').map(encodeURIComponent).join('/')}/`);
 }
 
 export function formatDate(date: Date, lang: Lang): string {

@@ -6,7 +6,7 @@ export type Post = CollectionEntry<'posts'>;
 
 export async function publishedPosts(lang?: Lang): Promise<Post[]> {
   // Drafts are excluded from ordinary builds. Private CI preview can opt in.
-  const includeDrafts = process.env.BLOG_PREVIEW_DRAFTS === 'true';
+  const includeDrafts = import.meta.env.VITE_BLOG_PREVIEW_DRAFTS === 'true';
   const all = await getCollection('posts', ({ data }) => includeDrafts || !data.draft);
   return all
     .filter((post) => !lang || post.data.lang === lang)

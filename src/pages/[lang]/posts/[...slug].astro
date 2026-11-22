@@ -6,20 +6,24 @@ import { text, otherLang, type Lang } from '../../../config';
 import { publishedPosts, postPath, tagPath, formatDate, type Post } from '../../../lib/posts';
 import { render } from 'astro:content';
 
-interface Props { post: Post; }
+interface Props { post: Post; translationPath: string | null; }
 export async function getStaticPaths() {
   const posts = await publishedPosts();
-  return posts.map((post) => ({
-    params: { lang: post.data.lang, slug: post.id.split('/').slice(1).join('/') },
-    props: { post },
-  }));
+  return posts.map((post) => {
+    const counterpart = posts.find(
+      (candidate) =>
+        candidate.data.translationKey === post.data.translationKey &&
+        candidate.data.lang === otherLang(post.data.lang as Lang)
+    );
+    return {
+      params: { lang: post.data.lang, slug: post.id.split('/').slice(1).join('/') },
+      props: { post, translationPath: counterpart ? postPath(counterpart) : null },
+    };
+  });
 }
-const { post } = Astro.props;
+const { post, translationPath } = Astro.props;
 const lang = post.data.lang as Lang;
-const posts = await publishedPosts();
-const translation = posts.find((p) => p.data.translationKey === post.data.translationKey && p.data.lang === otherLang(lang));
 const { Content } = await render(post);
-const translationPath = translation ? postPath(translation) : null;
 ---
 <BaseLayout lang={lang} active="home" title={post.data.title} description={post.data.description} isPost={true} translationPath={translationPath} canonicalPath={postPath(post)}>
   <article class="post-page">
@@ -29,7 +33,7 @@ const translationPath = translation ? postPath(translation) : null;
       <h1 data-pagefind-meta="title">{post.data.title}</h1>
       {post.data.description && <p class="article-summary">{post.data.description}</p>}
       <div class="article-tags">{post.data.tags.map((tag) => <a href={tagPath(lang, tag)}>{tag}</a>)}</div>
-      {translation ? <p class="translation-note"><a href={translationPath!}>{text[lang].translated} ↗</a>{lang === 'en' && <span> · {text[lang].originallyChinese}</span>}</p> : <p class="translation-note muted">{text[lang].missing}</p>}
+      {translationPath ? <p class="translation-note"><a href={translationPath!}>{text[lang].translated} ↗</a>{lang === 'en' && <span> · {text[lang].originallyChinese}</span>}</p> : <p class="translation-note muted">{text[lang].missing}</p>}
     </header>
     <div class="article-body prose" data-pagefind-body><Content /></div>
     <div class="post-endmark" aria-hidden="true">✳</div>

@@ -1,7 +1,6 @@
-"""Package built Astro pages for a local-only Windows/macOS preview.
+"""Package the built Astro blog for local-only private preview.
 
-Expected input: dist/ (built with base='/individual-blog').
-Output: private-preview/ directory to upload as a PRIVATE Actions artifact.
+No public site deployment. Windows viewers need no Python or Node.js.
 """
 from pathlib import Path
 from shutil import copy2, copytree, rmtree
@@ -17,18 +16,20 @@ if out.exists():
     rmtree(out)
 out.mkdir(parents=True)
 copytree(dist, out / "individual-blog")
-copy2(root / "scripts" / "private-preview-server.py", out / "private-preview-server.py")
+copy2(root / "scripts" / "private-preview-server.py",
+      out / "private-preview-server.py")
+copy2(root / "scripts" / "private-preview-server.ps1",
+      out / "private-preview-server.ps1")
 
 (out / "START_PRIVATE_PREVIEW.bat").write_text(
-    '@echo off\n'
-    'cd /d "%~dp0"\n'
-    'where py >nul 2>nul\n'
-    'if %errorlevel%==0 (\n'
-    '  py -3 private-preview-server.py\n'
-    ') else (\n'
-    '  python private-preview-server.py\n'
-    ')\n'
-    'pause\n',
+    '@echo off\r\n'
+    'cd /d "%~dp0"\r\n'
+    'powershell.exe -NoProfile -ExecutionPolicy Bypass '
+    '-File "%~dp0private-preview-server.ps1"\r\n'
+    'if errorlevel 1 (\r\n'
+    '  echo The private preview could not start.\r\n'
+    '  pause\r\n'
+    ')\r\n',
     encoding="utf-8",
 )
 (out / "START_PRIVATE_PREVIEW.command").write_text(
@@ -38,20 +39,22 @@ copy2(root / "scripts" / "private-preview-server.py", out / "private-preview-ser
     encoding="utf-8",
 )
 (out / "READ_ME_FIRST.txt").write_text(
-    "Xiang's Blog: PRIVATE local preview\n"
-    "==================================\n\n"
-    "This package is NOT published to GitHub Pages or any public URL.\n"
-    "Unpublished draft demonstration articles may be included.\n\n"
-    "Windows: extract ALL files, double-click START_PRIVATE_PREVIEW.bat.\n"
-    "macOS/Linux: from the extracted folder, run:\n"
-    "    python3 private-preview-server.py\n\n"
-    "Your browser will open the Chinese homepage automatically.\n"
-    "Use the website's language toggle to switch to English.\n"
-    "Close the terminal window or press Ctrl+C to stop.\n"
-    "Python 3 is required; no Node.js or npm install is needed to view.\n"
-    "Search, archive, math, and theme switches work on localhost.\n"
-    "Giscus comments are not configured and remain inactive.\n\n"
-    "This is a private development snapshot, not a public launch.\n",
+    "Xiang's Blog - PRIVATE local preview\n"
+    "===================================\n\n"
+    "This package is NOT a public website or a GitHub Pages deployment.\n"
+    "It may include unpublished demonstration drafts.\n\n"
+    "WINDOWS (Python and Node.js NOT required):\n"
+    "  1. Extract ALL files from the downloaded ZIP.\n"
+    "  2. Double-click START_PRIVATE_PREVIEW.bat.\n"
+    "  3. Your browser opens the Chinese homepage.\n"
+    "  4. Keep the terminal window open while browsing.\n\n"
+    "macOS/Linux: open a terminal in this folder and run:\n"
+    "  python3 private-preview-server.py\n\n"
+    "Use the language switch to view English pages.\n"
+    "The server listens on 127.0.0.1 only (your own computer).\n"
+    "Close the terminal or press Ctrl+C to stop the local preview.\n"
+    "Search, archive, math and theme toggles work on localhost.\n"
+    "Giscus comments have not been configured.\n",
     encoding="utf-8",
 )
 print(f"Private local preview packaged in {out}")

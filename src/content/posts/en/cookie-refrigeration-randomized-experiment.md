@@ -1,5 +1,5 @@
 ---
-title: "Does Chilling Cookie Dough Make Cookies Smaller? A Randomized Experiment"
+title: "Does Chilling Cookie Dough Make Cookies Smaller?"
 date: 2026-11-22
 lang: en
 translationKey: cookie-refrigeration-randomized-experiment

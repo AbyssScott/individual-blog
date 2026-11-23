@@ -7,7 +7,10 @@ tags: ["IR", "政治", "新闻", "媒体", "历史类比"]
 draft: false
 ---
 
-![《经济学人》报道《A new axis of malice threatens the global order》的标题与封面插画](/individual-blog/images/evil-01-cover.jpg)
+<figure>
+  <img src="/individual-blog/images/evil-01-cover.jpg" alt="《经济学人》报道《A new axis of malice threatens the global order》的标题与封面插画" />
+  <figcaption>图 1：《经济学人》报道的标题与封面插画。</figcaption>
+</figure>
 
 我在读《经济学人》的时候，看到了一篇名为 [*A new axis of malice threatens the global order*](https://www.economist.com/interactive/international/2026/11/19/a-new-axis-of-malice-threatens-the-global-order) 的报道。从字面意思来看，文章似乎是在说，中国、俄罗斯、伊朗和朝鲜之间正在形成一种具有邪恶和非正义性质的合作关系，而这种合作理应被天下“正道之人”共诛之。
 
@@ -17,7 +20,10 @@ draft: false
 
 不管怎样，我还是想仔细看看，《经济学人》究竟是基于什么理由，将包括中国在内的这几个国家称为“邪恶”的。
 
-![图2：《经济学人》关于中俄朝伊军事技术、经济合作及力量平衡的论述](/individual-blog/images/evil-02-cooperation.png)
+<figure>
+  <img src="/individual-blog/images/evil-02-cooperation.png" alt="图2：《经济学人》关于中俄朝伊军事技术、经济合作及力量平衡的论述" />
+  <figcaption>图 2：《经济学人》关于四国军事技术与经济合作的论述。</figcaption>
+</figure>
 
 好吧……从文章的这段论述来看（图2），《经济学人》似乎认为，这个轴心之所以邪恶，其中一个重要原因是：这些国家竟然敢联合起来，共享军事技术和专业知识，深化经济与生产上的合作，并由此改变欧洲、中东和亚洲的军事力量平衡。
 
@@ -41,7 +47,10 @@ draft: false
 
 另一个论点是，这个轴心正在改变全球核力量的平衡（图3）。
 
-![图3：《经济学人》关于全球核平衡、中俄合作和朝鲜核能力的论述](/individual-blog/images/evil-03-nuclear.png)
+<figure>
+  <img src="/individual-blog/images/evil-03-nuclear.png" alt="图3：《经济学人》关于全球核平衡、中俄合作和朝鲜核能力的论述" />
+  <figcaption>图 3：《经济学人》关于全球核力量平衡的论述。</figcaption>
+</figure>
 
 这里的论述似乎也有问题。文章提到：“而克里姆林宫则帮助中国建立导弹预警系统，并研发噪声更低的核导弹潜艇。”
 
@@ -55,7 +64,10 @@ draft: false
 
 然后是我最不喜欢的这个：历史类比。
 
-![图4：《经济学人》将四国合作类比二战前轴心国及黑手党组织的论述](/individual-blog/images/evil-04-historical-analogy.png)
+<figure>
+  <img src="/individual-blog/images/evil-04-historical-analogy.png" alt="图4：《经济学人》将四国合作类比二战前轴心国及黑手党组织的论述" />
+  <figcaption>图 4：《经济学人》将四国合作与二战前轴心国作历史类比的论述。</figcaption>
+</figure>
 
 文章认为，中俄朝伊之间的合作关系，一个更贴切的历史类比可能是第二次世界大战爆发前的轴心国。换句话说，这种类比似乎在暗示，今天这些国家之间的合作，与当年德意日轴心国的形成存在某种相似性，并可能对世界秩序造成破坏性影响，甚至让人联想到另一场世界大战的爆发。
 
@@ -63,7 +75,10 @@ draft: false
 
 至少在我看来，这不是一个很好的历史类比。不过，历史类比的滥用确实是一个值得讨论的问题，我也许以后会专门写点东西谈谈这个。
 
-![图5：《经济学人》关于四国挑战美国全球领导地位的论述](/individual-blog/images/evil-05-american-order.png)
+<figure>
+  <img src="/individual-blog/images/evil-05-american-order.png" alt="图5：《经济学人》关于四国挑战美国全球领导地位的论述" />
+  <figcaption>图 5：《经济学人》关于挑战美国全球领导地位的论述。</figcaption>
+</figure>
 
 最后还有一个论点（图5）：这些国家之所以被视为一个邪恶轴心，是因为它们拥有一个共同的愿望，也就是挑战美国的全球领导地位，试图扰乱美国主导的国际秩序，并从中获利。
 

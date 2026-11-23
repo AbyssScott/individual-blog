@@ -7,59 +7,58 @@ tags: ["实验"]
 draft: false
 ---
 
-这是我在 Donald P. Green 的《Experimental Methods》课程上完成的一份实验报告。我想研究一个看起来不那么学术、却很适合拿来做随机实验的问题：**烤饼干之前一直把面团放在冰箱里，和提前拿出来在室温下回温，究竟会不会影响烤出来的饼干直径？**
+这是我在 Donald P. Green 的《Experimental Methods》课程上完成的一份实验报告，主要探究烘焙前的冷藏与室温回温是否会影响饼干烤出来后的直径。Don 给了这份报告一个相当体面的分数，以至于我甚至觉得有些受之有愧。不过，从他的反馈来看，至少说明我的实验设计和执行还是相对严谨的，所以我也有了一些底气把它放在这里。如果你是一位烘焙爱好者，或许会对这个实验感兴趣。
 
-Donald 最后给了我 97 分，一个相当 decent 的分数，好到我甚至觉得有些受之有愧。不过，从分数和他的反馈来看，至少说明这次实验的设计、执行和报告写作得到了相当不错的评价。所以我也终于有了一点底气，把它放在这里。如果你是个烘焙爱好者，或许会觉得这个实验有些意思。
+顺便说明一下，这原本是一份课程要求 750 词左右的实验报告，因此受篇幅限制，有些地方我没有过多展开。
 
-关于冷藏饼干面团是否会影响烘焙时的延展，此前已经有过一些研究和烘焙测试（例如 [Hamel, 2015](https://www.kingarthurbaking.com/blog/2015/05/17/chilling-cookie-dough) 和 [Cho & Liang, 2021](https://ojs.library.ubc.ca/index.php/expedition/article/view/196120)）。它们都倾向于认为，冷藏会让饼干在烤制过程中延展得更少，最终直径也更小。我肯定不是把这个问题研究得最好的人，但我对此也有一些借口：我没有那么多资金，也没有多么理想的烘焙条件。我的烤箱甚至不够大，没法一次烤 20 块饼干。
+关于冷藏饼干面团是否会影响烘焙后的直径，此前已经有一些研究和烘焙测试（例如 [Hamel, 2015](https://www.kingarthurbaking.com/blog/2015/05/17/chilling-cookie-dough) 和 [Cho & Liang, 2021](https://ojs.library.ubc.ca/index.php/expedition/article/view/196120)）。我肯定不是把这个问题研究得最好的人，但对此我也有一些借口：我没有那么多资金，也没有那么好的烘焙条件，我的烤箱甚至不够大，没法一次烤 20 块饼干。不过，我的实验与此前研究有一个比较明显的区别：我没有使用自己制作的面团，而是直接用了超市里的商品预制面团。
 
-不过，我这次有一个不太一样的地方：我没有自己制作面团，而是直接买了 Pillsbury 的商品预制面团。这和之前主要使用自制面团的测试不完全一样，结果也未必能够直接比较。
-
-更有意思的是，这次实验并没有得到此前研究以及我的本科导师兼烘焙大师 Wilfred Chow 所预期的结果：**冷藏三小时的面团，与先冷藏一个半小时、再放在室温下回温一个半小时的面团，烤出来的饼干在直径上并没有表现出统计显著的差异。** 两组平均直径只差约 0.16 毫米，随机化检验的 $p$ 值为 0.690。
-
-当然，这不等于我证明了冷藏完全没有作用，更谈不上推翻之前的研究。我的样本只有 32 块饼干，而且用的还是单一品牌的商品面团。至于为什么这次没有得到预期中的差异，我也没法完全解释清楚。商品面团的配方是否有关系？或者，是因为两组面团其实都先经历了一段冷藏？这些目前都只是猜测。如果有烘焙爱好者对其中的机制有什么看法，我很乐意听。
-
-下面保留我的英文实验报告正文（不包含 Appendix）。完整的预注册材料、附录、实验照片、原始数据和 R 代码都可以在文末的 GitHub 仓库中找到。
+有意思的是，我的实验并没有得到此前类似研究、Don 以及我的本科导师兼烘焙大师 Wilfred Chow 所预期的结果。具体是什么结果，你可以看看我的实验报告。至于为什么会这样，我也没法完全解释清楚其中的机制。如果有烘焙爱好者对此有什么洞见，请让我知道。
 
 ---
 
-*This experiment was preregistered at [AsPredicted #324567](https://aspredicted.org/8b3y59.pdf).*
+## 持续冷藏与烘焙前回温对饼干直径的影响：一项随机实验
 
-## 1. Introduction
+Xiang Lian  
+POLS GU4724｜Experimental Methods｜2026 年秋季
 
-### 1.1 Motivation
+*本实验已在 [AsPredicted #324567](https://aspredicted.org/8b3y59.pdf) 预注册。*
 
-Previous baking tests suggest that chilling homemade cookie dough reduces spreading. Hamel (2015) observed less spreading in chilled chocolate-chip dough, while Cho and Liang (2021) found that longer chilling resulted in smaller cookie diameters. However, it remains unclear whether these findings apply to commercially prepared, ready-to-bake dough, which is typically sold refrigerated. This experiment therefore examines whether keeping commercial cookie dough refrigerated until baking, rather than allowing it to warm at room temperature beforehand, affects the diameter of the baked cookies.
+## 1. 引言
 
-### 1.2 Hypothesis
+### 1.1 研究动机
 
-**H1 (two-sided):** Mean baked cookie diameter differs between dough kept refrigerated until baking and dough allowed to warm at room temperature beforehand.
+此前的一些烘焙测试表明，冷藏自制饼干面团能够减少饼干在烘焙过程中的延展。Hamel（2015）观察到，经过冷藏的巧克力豆饼干面团在烘焙时延展得更少；Cho 和 Liang（2021）则发现，冷藏时间越长，烤出的饼干直径越小。然而，这些发现是否同样适用于通常以冷藏状态出售、可以直接烘焙的商品预制面团，目前仍不清楚。因此，本实验考察：与烘焙前先将商品面团置于室温下回温相比，一直将其冷藏至烘焙前，是否会影响烤成后的饼干直径。
 
-## 2. Experimental Design
+### 1.2 研究假设
 
-The experiment used 32 pre-portioned pieces of Pillsbury Ready to Bake Sugar Cookie Dough from two packages. Each cookie served as both the unit of randomization and the unit of analysis. On November 14, 2026, the cookies were baked in two batches of 16, with eight cookies on each oven rack.
+**H1（双侧假设）：** 一直冷藏至烘焙前的面团，与烘焙前经过室温回温的面团，烤成后的饼干平均直径存在差异。
 
-Random assignment was blocked by baking batch and oven rack to account for potential differences in baking conditions. Each of the four blocks contained four treatment and four control cookies, allowing comparisons within similar baking environments and potentially improving the precision of the estimated treatment effect. Positions within each tray were also randomized to reduce systematic differences in heat exposure (see the GitHub repository for the randomized assignments).
+## 2. 实验设计
 
-Treatment cookies (T) remained refrigerated for 180 minutes, while control cookies (C) were refrigerated for 90 minutes before being left at room temperature for another 90 minutes. Within each batch, both groups were baked simultaneously at 350°F for 17 minutes. After cooling on the baking trays for five minutes, two perpendicular diameters were measured across the bottom of each cookie to the nearest 0.1 cm. The average of these two measurements served as the preregistered outcome.
+本实验使用了两包 Pillsbury Ready to Bake Sugar Cookie Dough，共 32 块预先分份的饼干面团。每块饼干既是随机分配单位，也是分析单位。实验于 2026 年 11 月 14 日进行，分两批烘焙，每批 16 块，每层烤架放置 8 块。
 
-## 3. Core Assumptions
+为了考虑不同烘焙条件可能带来的差异，随机分配按照烘焙批次和烤架层位进行区组化。四个区组中，每组均包含 4 块处理组饼干和 4 块对照组饼干，使两组能够在相近的烘焙环境下进行比较，并有可能提高处理效应估计的精度。此外，每个烤盘上的摆放位置也进行了随机化，以减少受热位置差异带来的系统性影响（相关分配图见 GitHub 仓库的附录 A）。
 
-The design sought to satisfy three core assumptions. First, random assignment followed a predetermined within-block allocation, independent of the cookies' potential outcomes. Second, non-interference was supported by spacing cookies apart during baking, preventing them from merging and reducing the likelihood that one cookie's spreading would affect another's diameter. Third, excludability was supported by applying identical baking, cooling, and measurement procedures across treatment conditions, reducing the possibility that assignment would affect outcomes through pathways other than the intended temperature treatment.
+处理组（T）的面团持续冷藏 180 分钟；对照组（C）的面团先冷藏 90 分钟，再在室温下放置 90 分钟。同一批次中的两组饼干在 350°F 下同时烘焙 17 分钟。饼干出炉后先在烤盘上冷却 5 分钟，再沿每块饼干底面两个相互垂直的方向测量直径，测量精度为 0.1 厘米。这两个读数的平均值即为预注册的结果变量。
 
-## 4. Results
+## 3. 核心假设
 
-### 4.1 Descriptive Statistics
+实验设计力求满足三项核心假设。首先，**随机分配**遵循事先确定的区组内分配方案，与饼干的潜在结果相独立。其次，**无干扰假设**（non-interference）通过在烘焙时让饼干彼此保持间距来支持：这样可以避免饼干相互粘连，并降低一块饼干的延展影响另一块饼干直径的可能性。最后，**排除性假设**（excludability）通过对两组采用相同的烘焙、冷却和测量程序来支持，以减少随机分组通过预期的温度处理之外的其他途径影响结果的可能性。
 
-The mean baked cookie diameter was 5.8781 cm in the treatment group and 5.8625 cm in the control group, indicating a very small difference. As shown in Figure 1, the two groups' outcome distributions largely overlap, although the treatment group exhibited slightly greater variation (SD = 0.1064 cm) than the control group (SD = 0.0742 cm).
+## 4. 结果
 
-![Individual Cookie Diameters by Treatment Condition.](https://raw.githubusercontent.com/AbyssScott/POLS4724-Practicum-Experiment/main/result/cookie_outcomes.png)
+### 4.1 描述性统计
 
-*Individual Cookie Diameters by Treatment Condition.*
+处理组烤成后的平均直径为 5.8781 厘米，对照组为 5.8625 厘米，两者差异非常小。如图 1 所示，两组结果变量的分布大幅重叠，不过处理组的离散程度略高（标准差 SD = 0.1064 厘米），对照组的标准差为 0.0742 厘米。
 
-### 4.2 Statistical Inference
+![图 1：不同处理条件下各块饼干的直径](https://raw.githubusercontent.com/AbyssScott/POLS4724-Practicum-Experiment/main/result/cookie_outcomes.png)
 
-The preregistered estimand was the sample average treatment effect (ATE) of continued refrigeration relative to pre-baking warming. I estimated it using a blocked difference-in-means estimator, weighting each block's treatment-minus-control difference by its share of the total sample:
+*图 1：不同处理条件下各块饼干的直径。*
+
+### 4.2 统计推断
+
+预注册的目标参数（estimand）是**持续冷藏相对于烘焙前回温的样本平均处理效应**（sample average treatment effect, ATE）。我使用区组化均值差估计量（blocked difference-in-means estimator）进行估计，并以各区组样本量占总样本量的比例，给区组内处理组与对照组的均值差加权：
 
 $$
 \widehat{\mathrm{ATE}}_{\mathrm{blocked}}
@@ -67,49 +66,49 @@ $$
 \left(\bar{Y}_{Tb}-\bar{Y}_{Cb}\right).
 $$
 
-Because all four blocks had equal sizes and treatment proportions, the blocked estimate was identical to the pooled difference in means.
+由于四个区组的样本量和处理分配比例均相同，区组化估计值与不区分区组时的总体均值差相同。
 
-Table 1 reports an estimated ATE of +0.0156 cm (approximately 0.16 mm), indicating that refrigerated cookies were slightly wider on average. The conservative Neyman standard error was 0.0309 cm, reflecting the estimated variability of the blocked estimator across hypothetical random assignments. Since the standard error is nearly twice the magnitude of the estimated effect, the observed difference is small relative to its statistical uncertainty.
+表 1 显示，估计的 ATE 为 +0.0156 厘米（约 0.16 毫米），即持续冷藏组的饼干平均直径略大。保守的 Neyman 标准误为 0.0309 厘米，反映了在假想的重复随机分配下，区组化估计量的估计变异程度。由于标准误接近估计效应绝对值的两倍，观测到的差异相对于其统计不确定性而言很小。
 
-The normal-approximation 95% confidence interval [−0.0449, 0.0762] cm includes zero, indicating that the data are compatible with either a small negative or positive treatment effect. Across hypothetical repeated random assignments, approximately 95% of confidence intervals constructed using this procedure would contain the true sample ATE. Since the interval includes zero, we cannot reject a zero average treatment effect at the 5% significance level.
+基于正态近似的 95% 置信区间为 [−0.0449, 0.0762] 厘米，包含零，表明数据既与较小的负向处理效应相容，也与较小的正向处理效应相容。在假想的重复随机分配中，使用这一方法构造的置信区间大约有 95% 会包含真实的样本 ATE。由于该区间包含零，我们无法在 5% 的显著性水平下拒绝平均处理效应为零的原假设。
 
-**Table 1. Main Experimental Results**
+**表 1：主要实验结果**
 
-| Statistic | Estimate |
+| 统计量 | 估计值 |
 | --- | ---: |
-| Treatment mean (T; $n = 16$) | 5.8781 cm |
-| Control mean (C; $n = 16$) | 5.8625 cm |
-| Blocked ATE (T − C) | +0.0156 cm |
-| Conservative Neyman SE | 0.0309 cm |
-| Normal-approximation 95% CI | [−0.0449, 0.0762] cm |
-| Two-sided Fisher RI $p$-value | 0.690 |
-| Total observations | 32 |
+| 处理组平均直径（T；$n=16$） | 5.8781 厘米 |
+| 对照组平均直径（C；$n=16$） | 5.8625 厘米 |
+| 区组化 ATE（T − C） | +0.0156 厘米 |
+| 保守 Neyman 标准误 | 0.0309 厘米 |
+| 正态近似 95% 置信区间 | [−0.0449, 0.0762] 厘米 |
+| 双侧 Fisher 随机化推断 $p$ 值 | 0.690 |
+| 观测总数 | 32 |
 
-A two-sided Fisher randomization test examined the sharp null hypothesis that treatment had no effect on any individual cookie:
+此外，我使用双侧 Fisher 随机化检验（randomization test），考察处理对每一块饼干都没有影响的尖锐原假设（sharp null hypothesis）：
 
 $$
 H_0^{\mathrm{sharp}}:\quad Y_i(1)=Y_i(0),\quad \forall i.
 $$
 
-Under this null hypothesis, I simulated 10,000 random reassignments, preserving four treatment and four control cookies within each block. The resulting p-value was 0.690, indicating that approximately 69.0% of simulated assignments produced absolute treatment-effect estimates at least as large as the observed estimate. Thus, the observed difference was not unusual under the sharp null, which we fail to reject at the 5% significance level. Figure 2 presents the estimated ATE and its confidence interval. The randomization distribution is available in the GitHub repository.
+在这一原假设下，我模拟了 10,000 次重新随机分配，每次都保持每个区组内 4 块处理组饼干和 4 块对照组饼干不变。得到的 $p$ 值为 0.690，意味着大约 69.0% 的模拟分配所产生的处理效应估计值，其绝对值不小于实际观测到的估计值。因此，在尖锐原假设成立的情况下，观测到的差异并不罕见；我们无法在 5% 的显著性水平下拒绝这一原假设。图 2 展示了 ATE 的估计值及其置信区间，随机化分布见 GitHub 仓库中的附录图 A1。
 
-![Estimated Treatment Effect with 95% Confidence Interval.](https://raw.githubusercontent.com/AbyssScott/POLS4724-Practicum-Experiment/main/result/treatment_effect_ci.png)
+![图 2：估计的处理效应及其 95% 置信区间](https://raw.githubusercontent.com/AbyssScott/POLS4724-Practicum-Experiment/main/result/treatment_effect_ci.png)
 
-*Estimated Treatment Effect with 95% Confidence Interval.*
+*图 2：估计的处理效应及其 95% 置信区间。*
 
-## 5. Discussion and Conclusion
+## 5. 讨论与结论
 
-The estimated effect was slightly positive, in contrast to the reduced spreading associated with chilling in previous studies of homemade dough. However, the difference was too small and statistically uncertain to establish a contradictory finding. One possible explanation is that both groups began with refrigerated dough, which may have limited the contrast between treatment conditions, although this possibility was not directly tested.
+估计的处理效应略为正值，这与此前在自制面团研究中观察到的“冷藏减少延展”的结果方向不同。然而，这一差异太小，统计不确定性也太大，因此不足以确立一个与此前研究相矛盾的发现。一种可能的解释是，两组面团一开始都经过冷藏，这或许限制了两种处理条件之间的差异，但本实验并未直接检验这一解释。
 
-The small sample size limits statistical precision, while the use of a single brand restricts generalizability. Future experiments could improve on this design by including larger samples and multiple brands, while retaining blocked randomization to examine whether treatment effects vary across products.
+较小的样本量限制了统计估计的精度，而只使用单一品牌也限制了研究结果的可推广性。未来的实验可以在保留区组随机化设计的同时，扩大样本量并纳入多个品牌，以考察处理效应是否因产品不同而有所差异。
 
-## References
+## 参考文献
 
 Cho, K., & Liang, J. (2021). Examination of the effects of chilling time on the spreading of cookies. *The Expedition, 11*.  
-<https://ojs.library.ubc.ca/index.php/expedition/article/view/196120>
+https://ojs.library.ubc.ca/index.php/expedition/article/view/196120
 
 Hamel, P. J. (2015). *Chilling cookie dough: Does it make a difference?* King Arthur Baking.  
-<https://www.kingarthurbaking.com/blog/2015/05/17/chilling-cookie-dough>
+https://www.kingarthurbaking.com/blog/2015/05/17/chilling-cookie-dough
 
 ---
 

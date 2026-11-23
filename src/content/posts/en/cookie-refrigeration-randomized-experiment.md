@@ -114,10 +114,6 @@ Hamel, P. J. (2015). *Chilling cookie dough: Does it make a difference?* King Ar
 
 ## A Note on Blinding
 
-Don wrote “What about blinding?” next to the *Core Assumptions* section of my report. I really didn't address this clearly: **I did not formally design the experiment to be blinded**, nor did I ask an independent observer who was unaware of the treatment assignments to measure the cookies.
-
-In this experiment, I think the most plausible way a lack of blinding could have biased the results was through measurement. Knowing which group a cookie belonged to might have consciously or unconsciously influenced how I measured or recorded its diameter. But I measured and recorded the cookies one by one in the order they were arranged on the trays, deliberately avoiding checking their group assignments while doing so. Besides, the cookies from the two groups looked almost identical, so I suspect that any such influence was relatively small.
-
-That still doesn't make this a properly blinded measurement procedure. Nor can I rule out observer bias simply because I believe the group assignments didn't influence me. If I were to repeat the experiment, I would have someone who didn't know the assignments measure the cookies independently using their IDs.
+Donald pointed out in his feedback that I hadn't discussed blinding. Indeed, this experiment did not formally use blinding, so measurement bias was possible. However, I measured and recorded the cookies in the order they were arranged on the trays, deliberately avoiding checking which group each cookie belonged to. The cookies from the two groups also looked almost identical. For these reasons, I think the lack of blinding probably had only a limited effect on the measurements.
 
 **[GitHub: Full report, appendices, experimental data, and R code](https://github.com/AbyssScott/POLS4724-Practicum-Experiment)**

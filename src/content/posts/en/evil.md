@@ -7,7 +7,10 @@ tags: ["IR", "Politics", "News", "Media", "Historical Analogy"]
 draft: false
 ---
 
-![The Economist article headline and cover illustration for “A new axis of malice threatens the global order”](/individual-blog/images/evil-01-cover.jpg)
+<figure>
+  <img src="/individual-blog/images/evil-01-cover.jpg" alt="The Economist article headline and cover illustration for “A new axis of malice threatens the global order”" />
+  <figcaption>Figure 1. The Economist article headline and cover illustration.</figcaption>
+</figure>
 
 I was reading *The Economist* when I came across an article titled [*A new axis of malice threatens the global order*](https://www.economist.com/interactive/international/2026/11/19/a-new-axis-of-malice-threatens-the-global-order). Judging by the title, the article seemed to suggest that China, Russia, Iran, and North Korea were forming some kind of inherently evil and unjust partnership, one that ought to be condemned and crushed by all the righteous people of the world.
 
@@ -17,7 +20,10 @@ Apart from feeling uncomfortable, though, I was also puzzled by something else: 
 
 Anyway, I wanted to take a closer look at exactly why *The Economist* considers these countries, including China, to be "evil."
 
-![Figure 2: The Economist on the four countries' military and economic co-operation](/individual-blog/images/evil-02-cooperation.png)
+<figure>
+  <img src="/individual-blog/images/evil-02-cooperation.png" alt="Figure 2: The Economist on the four countries' military and economic co-operation" />
+  <figcaption>Figure 2. The Economist on military, technological, and economic cooperation among the four countries.</figcaption>
+</figure>
 
 Well... judging by this passage (Figure 2), *The Economist* seems to suggest that one important reason this axis is evil is that these countries have actually dared to come together, share military technology and expertise, deepen their economic and industrial cooperation, and thereby shift the military balance in Europe, the Middle East, and Asia.
 
@@ -41,7 +47,10 @@ Anyway, let's see what other arguments the article has to offer.
 
 Another argument is that this axis is changing the global nuclear balance (Figure 3).
 
-![Figure 3: The Economist on the global nuclear balance](/individual-blog/images/evil-03-nuclear.png)
+<figure>
+  <img src="/individual-blog/images/evil-03-nuclear.png" alt="Figure 3: The Economist on the global nuclear balance" />
+  <figcaption>Figure 3. The Economist on the global nuclear balance.</figcaption>
+</figure>
 
 This part also seems rather questionable. The article says the Kremlin is helping China build "a missile-warning system and quieter nuclear-missile submarines", citing Western officials.
 
@@ -55,7 +64,10 @@ I suppose China may have become more tolerant of North Korea's nuclear weapons d
 
 And now we come to the part I dislike the most: the historical analogy.
 
-![Figure 4: The Economist comparing the four-country relationship to pre-war Axis powers and mafia bosses](/individual-blog/images/evil-04-historical-analogy.png)
+<figure>
+  <img src="/individual-blog/images/evil-04-historical-analogy.png" alt="Figure 4: The Economist comparing the four-country relationship to pre-war Axis powers and mafia bosses" />
+  <figcaption>Figure 4. The Economist's historical analogy to the Axis powers before World War II.</figcaption>
+</figure>
 
 The article suggests that a more appropriate historical comparison for the cooperation among China, Russia, Iran, and North Korea might be the Axis powers in the years leading up to the Second World War. In other words, the analogy seems to imply that the cooperation among these countries today bears some resemblance to the formation of the German-Italian-Japanese Axis, and could have similarly destructive consequences for the world order, perhaps even contributing to the outbreak of another world war.
 
@@ -63,7 +75,10 @@ I really don't understand what makes this analogy so "appropriate." I simply don
 
 At least to me, this doesn't seem like a particularly good historical analogy. The misuse of historical analogies is certainly a topic worth discussing, though, and perhaps I'll write something about it another time.
 
-![Figure 5: The Economist on challenging American global leadership](/individual-blog/images/evil-05-american-order.png)
+<figure>
+  <img src="/individual-blog/images/evil-05-american-order.png" alt="Figure 5: The Economist on challenging American global leadership" />
+  <figcaption>Figure 5. The Economist on challenges to American global leadership.</figcaption>
+</figure>
 
 Finally, there is one more argument (Figure 5): these countries are considered an evil axis because they share a common desire to challenge American global leadership, disrupt the US-led international order, and benefit from doing so.
 

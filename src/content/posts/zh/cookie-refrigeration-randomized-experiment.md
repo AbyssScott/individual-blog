@@ -1,5 +1,5 @@
 ---
-title: "冷藏饼干面团会让饼干更小吗？一次随机实验"
+title: "冷藏饼干面团会让饼干更小吗？"
 date: 2026-11-22
 lang: zh
 translationKey: cookie-refrigeration-randomized-experiment

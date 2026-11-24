@@ -56,14 +56,14 @@ async function refreshImages() {
 }
 const storageKey=p=>'blog-developer-encrypted-draft-v1:'+p;
 function queueDraft() {
-  const p=current, text=$('source').value, k=key, baseline=original;
+  const p=current, text=$('source').value, k=key, baseline=original, baselineSha=sha;
   if(!p||!k)return draftQueue;
   draftQueue=draftQueue.catch(()=>{}).then(async()=>{
     try {
       if(text===baseline) localStorage.removeItem(storageKey(p));
       else {
         const iv=crypto.getRandomValues(new Uint8Array(12));
-        const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(p)},k,enc.encode(text));
+        const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(p)},k,enc.encode(JSON.stringify({text,baselineSha})));
         localStorage.setItem(storageKey(p),JSON.stringify({iv:to64(iv),data:to64(new Uint8Array(ciphertext))}));
       }
       if(current===p&&$('source').value===text) $('draft-state').textContent=text===baseline?'无未保存修改':'草稿已加密保存在此浏览器，尚未发布。';
@@ -75,7 +75,7 @@ async function loadDraft(p) {
   try {
     const raw=localStorage.getItem(storageKey(p));if(!raw)return null;
     const data=JSON.parse(raw);
-    return dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(data.iv),additionalData:enc.encode(p)},key,from64(data.data)));
+    return JSON.parse(dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(data.iv),additionalData:enc.encode(p)},key,from64(data.data))));
   } catch { status('此路径可能存在用其他令牌加密的草稿，无法解密。',true);return null; }
 }
 function editView() { $('source').hidden=false;$('preview').hidden=true;$('preview').replaceChildren(); }
@@ -83,7 +83,16 @@ async function setArticle(p,text,blob) {
   current=p;sha=blob;original=text;$('source').value=text;$('path').textContent=root+p;
   $('remove').disabled=!blob;$('history-button').disabled=!blob;$('history').hidden=true;editView();
   const draft=await loadDraft(p);
-  if(draft!==null&&draft!==text&&confirm('发现此文章的未发布本地草稿，是否恢复？')) $('source').value=draft;
+  if(draft&&typeof draft.text==='string'&&draft.text!==text) {
+    if(draft.baselineSha!==blob) {
+      // The server changed after the draft was created: do not silently apply it.
+      if(confirm('本地草稿基于旧版本。是否下载旧草稿以便手动合并？（不会覆盖最新文章。）')) {
+        const url=URL.createObjectURL(new Blob([draft.text],{type:'text/markdown;charset=utf-8'}));
+        const a=document.createElement('a');a.href=url;a.download='recovery-'+p.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      }
+      status('远程文章已更新；请手动合并旧草稿，避免覆盖其他修改。',true);
+    } else if(confirm('发现此文章的未发布本地草稿，是否恢复？')) $('source').value=draft.text;
+  }
   $('draft-state').textContent=$('source').value===original?'无未保存修改':'已恢复本地草稿，尚未发布。';
 }
 async function openPost(p) { await queueDraft(); const f=await readPost(p);await setArticle(p,f.text,f.sha); }
@@ -154,7 +163,7 @@ async function removePost() {
   if(prompt('删除会从博客移除文章，但历史记录仍公开。请输入完整路径 '+p+' 确认。')!==p)return;
   const result=await repoApi('/contents/'+filePath(root+p),'DELETE',{message:'Remove blog post: '+p,sha,branch});
   lastCommit=result.commit.sha;$('check').disabled=false;
-  await draftQueue;localStorage.removeItem(storageKey(p));current='';sha=null;original='';$('source').value='';$('path').textContent='';$('history').hidden=true;editView();$('remove').disabled=true;$('history-button').disabled=true;
+  await draftQueue;try{localStorage.removeItem(storageKey(p));}catch{}current='';sha=null;original='';$('source').value='';$('path').textContent='';$('history').hidden=true;editView();$('remove').disabled=true;$('history-button').disabled=true;
   status('删除已提交，等待网站构建。');await refreshPosts();
 }
 async function history() {
@@ -233,3 +242,4 @@ action('download',()=>{
 });
 $('source').addEventListener('input',queueDraft);
 window.addEventListener('pagehide',()=>{token='';key=null;});
+window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});

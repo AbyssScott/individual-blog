@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feature/blog-developer-mode, feature/developer-studio-ui]
+    branches: [feature/blog-developer-mode, feature/developer-studio-ui, feature/studio-visual-polish]
 permissions:
   contents: read
 jobs:

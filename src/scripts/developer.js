@@ -10,6 +10,7 @@ import { parse as parseYaml, parseDocument } from 'yaml';
 import { renderVisual, replaceVisualText, replaceBlock } from './visual-editor.js';
 import { normalizePrefs, clampSplit, scrollFraction, scrollTarget } from './studio-preferences.js';
 import { createRichEditor } from './rich-editor.js';
+import { encryptBackup, decryptBackup, planRestore, maxBackupBytes } from './draft-backup.js';
 
 const $ = id => document.getElementById(id);
 const PREF_KEY='blog-developer-ui-v1';
@@ -73,6 +74,13 @@ async function refreshImages() {
   showOptions($('images'), files.filter(f=>f.type==='file'&&/\.(png|jpe?g|webp|gif)$/i.test(f.name)), f=>f.name, f=>f.name);
 }
 const storageKey=p=>'blog-developer-encrypted-draft-v1:'+p;
+async function storeDraft(p,text,baselineSha,k=key){
+ if(!k)throw Error('请先登录。');
+ const iv=crypto.getRandomValues(new Uint8Array(12));
+ const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(p)},k,enc.encode(JSON.stringify({text,baselineSha})));
+ localStorage.setItem(storageKey(p),JSON.stringify({iv:to64(iv),data:to64(new Uint8Array(ciphertext))}));
+ drafts.set(p,{text,baselineSha});
+}
 function queueDraft() {
   const p=current, text=$('source').value, k=key, baseline=original, baselineSha=sha;
   if(!p||!k)return draftQueue;
@@ -81,10 +89,7 @@ function queueDraft() {
     try {
       if(text===baseline&&baselineSha){localStorage.removeItem(storageKey(p));drafts.delete(p);}
       else {
-        const iv=crypto.getRandomValues(new Uint8Array(12));
-        const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(p)},k,enc.encode(JSON.stringify({text,baselineSha})));
-        localStorage.setItem(storageKey(p),JSON.stringify({iv:to64(iv),data:to64(new Uint8Array(ciphertext))}));
-        drafts.set(p,{text,baselineSha});
+        await storeDraft(p,text,baselineSha,k);
       }
       if(current===p&&$('source').value===text) $('draft-state').textContent=text===baseline&&baselineSha?'无未保存修改':'草稿已加密保存在此浏览器，尚未发布。';
       if(key===k){renderLibrary();updateCounterpart();}return true;
@@ -283,6 +288,7 @@ function action(id,fn) {
 action('connect',login);action('logout',logout);action('open',()=>openPost($('posts').value));action('new',newPost);
 action('rich-mode',()=>chooseMode('rich'));action('visual-mode',()=>chooseMode('visual'));action('edit',()=>chooseMode('body'));action('split-mode',()=>chooseMode('split'));action('raw-mode',()=>chooseMode('raw'));action('publish',publish);action('remove',removePost);action('history-button',history);action('restore',restore);
 action('upload',upload);action('insert-image',()=>insertImage($('images').value));action('check',checkStatus);
+action('backup-open',async()=>{await ensureSaved();openBackup();});
 action('save-draft',async()=>{if(!current)throw Error('请先打开或新建文章。');if(await queueDraft()===false)throw Error('草稿保存失败，请下载草稿。');status('本地草稿已保存，未公开发布。');});
 action('download',()=>{
   if(!current)throw Error('请先打开文章。');
@@ -338,7 +344,7 @@ function syncFields(){
  }catch{$('meta-notice').textContent='源码中的 YAML 无效，请在完整源码模式修复。';}
 }
 function schedulePreview(){clearTimeout(previewTimer);revision++;scheduleVisual();if(mode==='split'){previewTimer=setTimeout(()=>preview().catch(e=>status(e.message,true)),200);}}
-function chooseMode(next){setMode(next);prefs.mode=mode;persistPrefs();}
+function chooseMode(next){setMode(next);prefs.mode=mode==='visual'?'rich':mode;persistPrefs();}
 function setMode(next){
  if(mode==='rich'&&next!=='rich')destroyRich();
  if(next!=='raw'&&current){try{split($('source').value);}catch(e){status(e.message,true);next='raw';}}
@@ -619,3 +625,48 @@ $('rich-block-apply').addEventListener('click',()=>{
  if(!rich||!richBlock||richBlock.path!==current||busy)return;
  if(rich.replaceBlock(richBlock.pos,richBlock.raw,$('rich-block-source').value))$('rich-block-dialog').close();
 });
+
+function openBackup(){
+ $('backup-password').value='';$('backup-confirm-password').value='';$('backup-file').value='';$('backup-result').textContent='';
+ $('backup-count').textContent='可读取的本地草稿：'+drafts.size+' 篇'+(draftIndexError?'（部分草稿无法解密，不包含在备份内）':'');
+ $('backup-dialog').showModal();
+}
+$('backup-close').addEventListener('click',()=>$('backup-dialog').close());
+$('backup-dialog').addEventListener('close',()=>{$('backup-password').value='';$('backup-confirm-password').value='';$('backup-file').value='';});
+$('backup-dialog').addEventListener('cancel',e=>{if(busy)e.preventDefault();});
+async function backupAction(fn){
+ if(busy||!key)return;busy=true;lockFields(true);
+ for(const id of ['backup-close','backup-export','backup-import','backup-password','backup-confirm-password','backup-file'])$(id).disabled=true;
+ try{await fn();}catch(e){$('backup-result').textContent=e.message;}
+ finally{busy=false;lockFields(false);for(const id of ['backup-close','backup-export','backup-import','backup-password','backup-confirm-password','backup-file'])$(id).disabled=false;}
+}
+$('backup-export').addEventListener('click',()=>backupAction(async()=>{
+ if(!drafts.size)throw Error('没有可备份的本地草稿。');
+ const pass=$('backup-password').value;
+ if(pass!==$('backup-confirm-password').value)throw Error('两次输入的密码不一致。');
+ const raw=await encryptBackup([...drafts].map(([path,d])=>({path,...d})),pass);
+ const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download='xiang-blog-drafts-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ $('backup-result').textContent='已导出 '+drafts.size+' 篇加密草稿。请另外保存密码。';
+ $('backup-password').value='';$('backup-confirm-password').value='';
+}));
+$('backup-import').addEventListener('click',()=>backupAction(async()=>{
+ const file=$('backup-file').files[0];if(!file||file.size>maxBackupBytes)throw Error('请选择有效的加密备份文件（最大 32 MB）。');
+ const entries=await decryptBackup(await file.text(),$('backup-password').value);
+ await refreshPosts();
+ const existing=new Set(entries.filter(e=>localStorage.getItem(storageKey(e.path))!==null).map(e=>e.path));
+ const remote=new Map(library.map(e=>[e.path,e.sha??'unverified']));
+ const plan=planRestore(entries,existing,remote);
+ let saved=0,opened=false;const failed=[];
+ for(const e of plan.restore){
+  try{
+   await storeDraft(e.path,e.text,e.baselineSha);
+   saved++;if(e.path===current)opened=true;
+  }catch{failed.push(e.path+'：本地存储失败');}
+ }
+ if(opened){await setArticle(current,original,sha);}
+ renderLibrary();updateCounterpart();
+ $('backup-count').textContent='可读取的本地草稿：'+drafts.size+' 篇';
+ $('backup-result').textContent='已恢复 '+saved+' 篇，跳过 '+plan.skipped.length+' 篇，失败 '+failed.length+' 篇。'+[...plan.skipped.map(e=>e.path+'：'+e.reason),...failed].map(x=>'\n'+x).join('')+'\n未发布任何文章。';
+ $('backup-password').value='';$('backup-confirm-password').value='';
+}));

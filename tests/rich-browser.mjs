@@ -43,6 +43,7 @@ try{
  await page.goto('http://127.0.0.1:'+server.address().port+base+'developer/');
  async function login(){await page.locator('#token').fill('github_pat_TEST_ONLY_NOT_REAL');await page.locator('#connect').click();await page.locator('#workspace').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('#source').value.includes('First paragraph.'));}
  await login();
+ assert.equal(await page.locator('#rich-mode').getAttribute('aria-pressed'),'true');
  await page.locator('#rich-mode').click();
  const prose=page.locator('#rich-editor .ProseMirror');
  await prose.waitFor({state:'visible'});
@@ -80,8 +81,39 @@ try{
  await page.locator('#login').waitFor({state:'visible'});
  await login();
  assert.equal(await page.locator('#source').inputValue(),edited);
+ // Verify a portable encrypted backup survives deletion of the browser's
+ // encrypted drafts, then restores against the same remote baseline.
+ await page.locator('#backup-open').click();
+ await page.locator('#backup-dialog').waitFor({state:'visible'});
+ const password='backup-only password';
+ await page.locator('#backup-password').fill(password);
+ await page.locator('#backup-confirm-password').fill(password);
+ const downloaded=page.waitForEvent('download');
+ await page.locator('#backup-export').click();
+ const download=await downloaded;
+ const raw=await readFile(await download.path(),'utf8');
+ assert.ok(!raw.includes('New paragraph'));assert.ok(!raw.includes('github_pat'));
+ await check('backup exported',async()=> (await page.locator('#backup-result').textContent()).includes('已导出 1'));
+ await page.locator('#backup-close').click();
+ await page.locator('#logout').click();
+ await page.locator('#login').waitFor({state:'visible'});
+ await page.evaluate(()=>{for(const k of Object.keys(localStorage))if(k.startsWith('blog-developer-encrypted-draft-v1:'))localStorage.removeItem(k);});
+ await login();
+ assert.equal(await page.locator('#source').inputValue(),markdown);
+ await page.locator('#backup-open').click();
+ await page.locator('#backup-password').fill(password);
+ await page.locator('#backup-file').setInputFiles({name:'drafts.json',mimeType:'application/json',buffer:Buffer.from(raw)});
+ await page.locator('#backup-import').click();
+ await check('backup imported',async()=> (await page.locator('#backup-result').textContent()).includes('已恢复 1 篇'));
+ assert.equal(await page.locator('#source').inputValue(),edited);
+ await page.locator('#backup-close').click();
+ // Exercise Chinese text insertion after restore without changing the protected math block.
+ const last=page.locator('#rich-editor .ProseMirror > p').last();
+ await last.click();await page.keyboard.press('End');await page.keyboard.insertText(' 中文测试');
+ await check('Chinese text serialized',async()=> (await page.locator('#source').inputValue()).includes('中文测试'));
+ assert.ok((await page.locator('#source').inputValue()).includes('$\nx^2\n$'));
  assert.deepEqual(errors,[]);
- console.log('Rich editor browser smoke test passed (mock API; no real writes).');
+ console.log('Rich editor and encrypted backup browser smoke test passed (mock API; no real writes).');
  }catch(error){
  if(page)console.error('Browser diagnostic',JSON.stringify(await page.evaluate(()=>({
   source:document.querySelector('#source')?.value,richText:document.querySelector('#rich-editor')?.innerText,richState:document.querySelector('#rich-state')?.textContent,status:document.querySelector('#status')?.textContent,editable:document.querySelector('#rich-editor .ProseMirror')?.isContentEditable,selection:window.getSelection()?.toString(),active:document.activeElement?.outerHTML.slice(0,250)

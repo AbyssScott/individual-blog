@@ -56,3 +56,20 @@ test('repeated validation never mutates document or origin attributes',()=>{
  assert.equal(doc.firstChild.attrs.origin,0);
  assert.equal(doc.child(1).attrs.origin,1);
 });
+
+test('simple quotes and lists are editable and preserve other source',()=>{
+ const source='A.\n\n> Quote\n\n- One\n- Two\n\n3. Third\n4. Fourth\n\n$$\nx^2\n$$\n';
+ const c=readRich(source);
+ assert.equal(c.doc.child(1).type.name,'blockquote');assert.equal(c.doc.child(2).type.name,'bullet_list');assert.equal(c.doc.child(3).type.name,'ordered_list');
+ assert.equal(serializeRich(c.doc,c),source);
+ const quote=c.doc.child(1),p=S.nodes.paragraph.create(null,S.text('Updated quote'));
+ const doc=c.doc.copy(c.doc.content.replaceChild(1,quote.copy(quote.content.replaceChild(0,p))));
+ assert.equal(serializeRich(doc,c),source.replace('> Quote','> Updated quote'));
+ const list=c.doc.child(2),item=list.child(0),changed=item.copy(item.content.replaceChild(0,S.nodes.paragraph.create(null,S.text('Changed'))));
+ const d=c.doc.copy(c.doc.content.replaceChild(2,list.copy(list.content.replaceChild(0,changed))));
+ assert.equal(serializeRich(d,c),source.replace('- One','- Changed'));
+});
+test('nested and task lists remain protected',()=>{
+ assert.equal(readRich('- [ ] Task\n').doc.firstChild.type.name,'protected');
+ assert.equal(readRich('- One\n  - Nested\n').doc.firstChild.type.name,'protected');
+});

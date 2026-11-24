@@ -16,7 +16,8 @@ const root = 'src/content/posts/';
 const base = document.querySelector('.dev').dataset.base;
 const validPost = /^(zh|en)\/[a-z0-9][a-z0-9-]*\.md$/;
 let token = '', key = null, current = '', sha = null, original = '', lastCommit = '', busy = false, draftQueue = Promise.resolve();
-let library=[], mode='visual', filter='all', revision=0, previewTimer;
+let library=[], mode='visual', filter='all', revision=0, previewTimer, stateFilter='all';
+const drafts=new Map();let draftIndexError=false;
 const metaCache=new Map();
 let statusTimer;
 const status = (message, error = false) => { clearTimeout(statusTimer); $('status').textContent = message; $('status').dataset.error = String(error); if(!error)statusTimer=setTimeout(()=>{$('status').textContent='';},4500); };
@@ -69,19 +70,23 @@ const storageKey=p=>'blog-developer-encrypted-draft-v1:'+p;
 function queueDraft() {
   const p=current, text=$('source').value, k=key, baseline=original, baselineSha=sha;
   if(!p||!k)return draftQueue;
+  if(drafts.get(p)?.text===text&&drafts.get(p)?.baselineSha===baselineSha&&!(text===baseline&&baselineSha))return draftQueue;
   draftQueue=draftQueue.catch(()=>{}).then(async()=>{
     try {
-      if(text===baseline) localStorage.removeItem(storageKey(p));
+      if(text===baseline&&baselineSha){localStorage.removeItem(storageKey(p));drafts.delete(p);}
       else {
         const iv=crypto.getRandomValues(new Uint8Array(12));
         const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(p)},k,enc.encode(JSON.stringify({text,baselineSha})));
         localStorage.setItem(storageKey(p),JSON.stringify({iv:to64(iv),data:to64(new Uint8Array(ciphertext))}));
+        drafts.set(p,{text,baselineSha});
       }
-      if(current===p&&$('source').value===text) $('draft-state').textContent=text===baseline?'无未保存修改':'草稿已加密保存在此浏览器，尚未发布。';
-    } catch { if(current===p)$('draft-state').textContent='本地草稿保存失败，请使用“下载草稿”。'; }
+      if(current===p&&$('source').value===text) $('draft-state').textContent=text===baseline&&baselineSha?'无未保存修改':'草稿已加密保存在此浏览器，尚未发布。';
+      if(key===k){renderLibrary();updateCounterpart();}return true;
+    } catch { if(current===p)$('draft-state').textContent='本地草稿保存失败，请使用“下载草稿”。';return false; }
   });
   return draftQueue;
 }
+async function ensureSaved(){if(await queueDraft()===false)throw Error('当前草稿尚未成功保存，请先下载草稿再切换。');}
 async function loadDraft(p) {
   try {
     const raw=localStorage.getItem(storageKey(p));if(!raw)return null;
@@ -91,23 +96,28 @@ async function loadDraft(p) {
 }
 function editView() { activeVisual=null;visualUndo=[];syncFields();setMode('visual'); }
 async function setArticle(p,text,blob) {
-  current=p;sha=blob;original=text;$('source').value=text;$('path').textContent=root+p;
-  $('remove').disabled=!blob;$('history-button').disabled=!blob;$('history').hidden=true;editView();
-  const draft=await loadDraft(p);
-  if(draft&&typeof draft.text==='string'&&draft.text!==text) {
-    if(draft.baselineSha!==blob) {
-      // The server changed after the draft was created: do not silently apply it.
-      if(confirm('本地草稿基于旧版本。是否下载旧草稿以便手动合并？（不会覆盖最新文章。）')) {
-        const url=URL.createObjectURL(new Blob([draft.text],{type:'text/markdown;charset=utf-8'}));
-        const a=document.createElement('a');a.href=url;a.download='recovery-'+p.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      }
-      status('远程文章已更新；请手动合并旧草稿，避免覆盖其他修改。',true);
-    } else if(confirm('发现此文章的未发布本地草稿，是否恢复？')) $('source').value=draft.text;
-  }
-  syncFields();scheduleVisual();$('visual-editor').scrollTop=0;$('body-editor').scrollTop=0;$('body-editor').setSelectionRange(0,0);$('source').scrollTop=0;renderLibrary();updateCounterpart();
-  $('draft-state').textContent=$('source').value===original?'无未保存修改':'已恢复本地草稿，尚未发布。';
+ const draft=await loadDraft(p),raw=localStorage.getItem(storageKey(p));
+ if(raw&&!draft)throw Error('此文章有无法解密的本地草稿。为避免覆盖，暂时不能打开。请使用原令牌恢复。');
+ if(draft&&draft.baselineSha!==blob&&draft.text!==text){
+  if(!confirm('此草稿基于旧版本。是否下载旧草稿、保留加密备份并打开远程最新版？取消将保留原草稿。'))throw Error('已保留旧草稿，未切换文章。');
+  const url=URL.createObjectURL(new Blob([draft.text],{type:'text/markdown;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='recovery-'+p.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  localStorage.setItem('blog-developer-recovery-v1:'+p+':'+Date.now(),raw);
+  localStorage.removeItem(storageKey(p));drafts.delete(p);
+ }
+ current=p;sha=blob;original=text;$('source').value=(draft&&draft.baselineSha===blob)?draft.text:text;$('path').textContent=root+p;
+ $('remove').disabled=false;$('history-button').disabled=!blob;$('history').hidden=true;editView();
+ syncFields();scheduleVisual();$('visual-editor').scrollTop=0;$('body-editor').scrollTop=0;$('body-editor').setSelectionRange(0,0);$('source').scrollTop=0;renderLibrary();updateCounterpart();
+ $('draft-state').textContent=(!blob||$('source').value!==original)?'本地草稿，尚未发布。':'无未保存修改';
 }
-async function openPost(p) { await queueDraft(); const f=await readPost(p);await setArticle(p,f.text,f.sha); }
+async function openPost(p) {
+ if(!validPost.test(p))throw Error('无效文章路径。');
+ if(p===current)return;
+ await ensureSaved();
+ const draft=drafts.get(p);
+ if(draft&&!library.some(x=>x.path===p)&&!draft.baselineSha){await setArticle(p,draft.text,null);return;}
+ const f=await readPost(p);await setArticle(p,f.text,f.sha);
+}
 function split(text) {
   const m=/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)([\s\S]*)$/.exec(text);
   if(!m)throw Error('需要完整的 YAML frontmatter（---）。');
@@ -132,8 +142,7 @@ async function preview() {
   const id=++revision,p=current;
   const {meta,body}=split($('source').value);
   const h=document.createElement('h1');h.textContent=String(meta?.title||'');
-  const content=document.createElement('div');
-  content.innerHTML=String(await renderer.process(body));
+  const template=document.createElement('template');template.innerHTML=await renderVisual(body);const content=document.createElement('div');content.append(template.content);
   // Do not load third-party images or permit navigation from a preview.
   for(const img of content.querySelectorAll('img')) {
     const src=img.getAttribute('src')||'';
@@ -159,24 +168,19 @@ async function publish() {
   sha=result.content.sha;original=text;lastCommit=result.commit.sha;
   await queueDraft();$('remove').disabled=false;$('history-button').disabled=false;$('check').disabled=false;
   status('文章已提交，GitHub Pages 尚需完成构建。Commit: '+lastCommit.slice(0,7));
-  await refreshPosts();
+  await refreshPosts();updateCounterpart();
 }
 async function newPost() {
-  await queueDraft();
-  const p=prompt('输入文章路径，例如 zh/my-new-post.md 或 en/my-new-post.md');
-  if(p===null)return;if(!validPost.test(p))throw Error('路径须为 zh/ 或 en/ 加英文小写 slug 和 .md。');
-  if((await refreshPosts()).includes(p))throw Error('该文章已经存在，请打开现有文章。');
-  const lang=p.split('/')[0],slug=p.split('/')[1].slice(0,-3);
-  const today=new Date().toISOString().slice(0,10);
-  const template='---\ntitle: "'+(lang==='zh'?'新文章':'New article')+'"\ndescription: ""\ndate: '+today+'\nlang: '+lang+'\ntranslationKey: '+slug+'\ntags: []\ndraft: false\n---\n\n';
-  await setArticle(p,template,null);
+ await ensureSaved();
+ openNewDialog();
 }
 async function removePost() {
-  if(!sha||!current)return;const p=current;
+  if(!current)return;const p=current;
+  if(!sha){if(!confirm('永久删除这篇本地草稿？'))return;await draftQueue;localStorage.removeItem(storageKey(p));drafts.delete(p);current='';original='';$('source').value='';$('path').textContent='';editView();renderLibrary();status('本地草稿已删除。');return;}
   if(prompt('删除会从博客移除文章，但历史记录仍公开。请输入完整路径 '+p+' 确认。')!==p)return;
   const result=await repoApi('/contents/'+filePath(root+p),'DELETE',{message:'Remove blog post: '+p,sha,branch});
   lastCommit=result.commit.sha;$('check').disabled=false;
-  await draftQueue;try{localStorage.removeItem(storageKey(p));}catch{}current='';sha=null;original='';$('source').value='';$('path').textContent='';$('history').hidden=true;editView();$('remove').disabled=true;$('history-button').disabled=true;
+  await draftQueue;try{localStorage.removeItem(storageKey(p));}catch{}drafts.delete(p);current='';sha=null;original='';$('source').value='';$('path').textContent='';$('history').hidden=true;editView();$('remove').disabled=true;$('history-button').disabled=true;
   syncFields();status('删除已提交，等待网站构建。');await refreshPosts();
 }
 async function history() {
@@ -225,24 +229,25 @@ async function login() {
     const repository=await repoApi('');
     if(repository.full_name.toLowerCase()!==repo.toLowerCase())throw Error('仓库验证失败。');
     key=await crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',enc.encode(token)),{name:'AES-GCM'},false,['encrypt','decrypt']);
-    const posts=await refreshPosts();await refreshImages();
+    const posts=await refreshPosts();await refreshImages();await readDraftIndex();
     $('identity').textContent='已验证：'+account.login;
     $('login').hidden=true;$('workspace').hidden=false;
     const initial=new URLSearchParams(location.search).get('post');
-    if(initial&&posts.includes(initial))await openPost(initial);
+    try {if(initial&&(posts.includes(initial)||drafts.has(initial)))await openPost(initial);
     else if(posts.length)await openPost(posts[0]);
-    else { $('remove').disabled=true;$('history-button').disabled=true; }
-    status('已连接 GitHub。保存时由 GitHub 强制执行仓库写入权限。');
+    else if(drafts.size)await openPost(drafts.keys().next().value);
+    else { $('remove').disabled=true;$('history-button').disabled=true; }}catch(e){status(e.message,true);return;}
+    if(!draftIndexError)status('已连接 GitHub。保存时由 GitHub 强制执行仓库写入权限。');
   } catch(error) {token='';key=null;$('login').hidden=false;$('workspace').hidden=true;throw error;}
 }
 async function logout() {
-  await queueDraft();activeVisual=null;visualUndo=[];clearTimeout(visualTimer);$('visual-editor').replaceChildren();token='';key=null;current='';sha=null;original='';lastCommit='';$('source').value='';$('token').value='';$('preview').replaceChildren();$('path').textContent='';$('history').hidden=true;$('check').disabled=true;$('workspace').hidden=true;$('login').hidden=false;status('已退出，令牌已从页面内存清除。');
+  await ensureSaved();drafts.clear();$('post-list').replaceChildren();$('posts').replaceChildren();$('body-editor').value='';for(const id of metaIds)$(id).value='';$('tag-chips').replaceChildren();activeVisual=null;visualUndo=[];clearTimeout(visualTimer);$('visual-editor').replaceChildren();token='';key=null;current='';sha=null;original='';lastCommit='';$('source').value='';$('token').value='';$('preview').replaceChildren();$('path').textContent='';$('history').hidden=true;$('check').disabled=true;$('workspace').hidden=true;$('login').hidden=false;status('已退出，令牌已从页面内存清除。');
 }
 function action(id,fn) {
   $(id).addEventListener('click',async()=>{
     if(busy||!finishVisual())return;busy=true;const control=$(id);control.disabled=true;lockFields(true);
     try{await fn();}catch(e){status(e instanceof Error?e.message:'操作失败。',true);}
-    finally{busy=false;lockFields(false);control.disabled=id==='check'?!lastCommit:id==='remove'||id==='history-button'?!sha:false;}
+    finally{busy=false;lockFields(false);control.disabled=id==='check'?!lastCommit:id==='remove'?!current:id==='history-button'?!sha:false;}
   });
 }
 action('connect',login);action('logout',logout);action('open',()=>openPost($('posts').value));action('new',newPost);
@@ -261,20 +266,35 @@ const metaIds=['meta-title','meta-description','meta-date','meta-tags','meta-key
 const keys=['title','description','date','tags','translationKey'];
 function lockFields(value){for(const id of ['source','body-editor',...metaIds,'tag-input'])$(id).readOnly=value;}
 function parts(){const m=/^(---[ \t]*\r?\n)([\s\S]*?)(\r?\n---[ \t]*(?:\r?\n|$))([\s\S]*)$/.exec($('source').value);if(!m)throw Error('完整源码中的 YAML 格式无效。');return m;}
+function visibleEntries(){
+ const all=new Map(library.map(item=>[item.path,{...item,published:true}]));
+ for(const [path,draft] of drafts){let meta={};try{meta=split(draft.text).meta||{};}catch{}
+ const old=all.get(path);all.set(path,{...old,path,meta:{...old?.meta,...meta},published:!!old,draft:true});}
+ return [...all.values()].sort((a,b)=>String(b.meta.date||'').localeCompare(String(a.meta.date||''))||a.path.localeCompare(b.path));
+}
 function renderLibrary(){
  const el=$('post-list'),q=$('search-post').value.trim().toLowerCase();el.replaceChildren();
+ const all=visibleEntries();
+ showOptions($('posts'),all,x=>x.meta.title||x.path,x=>x.path);if(current)$('posts').value=current;
  for(const lang of ['zh','en']){
   if(filter!=='all'&&filter!==lang)continue;
-  const rows=library.filter(x=>x.path.startsWith(lang+'/')&&String((x.meta.title||'')+' '+x.path).toLowerCase().includes(q));
+  const rows=all.filter(x=>x.path.startsWith(lang+'/')&&(stateFilter==='all'||(stateFilter==='draft'?x.draft:x.published))&&String((x.meta.title||'')+' '+x.path).toLowerCase().includes(q));
   if(!rows.length)continue;
   const group=document.createElement('span');group.className='group';group.textContent=lang==='zh'?'中文文章':'English articles';el.append(group);
-  for(const item of rows){const btn=document.createElement('button');btn.type='button';btn.textContent=String(item.meta.title||item.path);btn.setAttribute('aria-current',String(item.path===current));const sub=document.createElement('small');sub.textContent=String(item.meta.date||'');btn.append(sub);btn.addEventListener('click',()=>{if(busy)return;$('posts').value=item.path;$('open').click();});el.append(btn);}
+  for(const item of rows){
+   const btn=document.createElement('button');btn.type='button';btn.textContent=String(item.meta.title||item.path);btn.setAttribute('aria-current',String(item.path===current));
+   const sub=document.createElement('small');const pair=all.find(x=>x.path!==item.path&&x.path.split('/')[0]!==lang&&x.meta.translationKey&&x.meta.translationKey===item.meta.translationKey);
+   sub.textContent=[item.meta.date||'',pair?(pair.published?'中 / EN':'译文草稿'):(lang==='zh'?'仅中文':'EN only')].filter(Boolean).join(' · ');
+   if(item.draft){const label=document.createElement('span');label.className='draft-indicator';label.textContent=item.published?' · 未发布修改':' · 草稿';sub.append(label);}
+   btn.append(sub);btn.addEventListener('click',()=>{if(busy)return;$('posts').value=item.path;$('open').click();});el.append(btn);
+  }
  }
+ if(!el.children.length){const empty=document.createElement('p');empty.className='empty-list';empty.textContent='没有匹配的文章';el.append(empty);}
 }
 function updateCounterpart(){
- let match=null;
- try{const m=split($('source').value).meta;match=library.find(x=>x.path!==current&&x.meta.lang!==m.lang&&x.meta.translationKey===m.translationKey);}catch{}
- $('counterpart').disabled=!match;$('counterpart').dataset.path=match?.path||'';
+ let match=null,meta=null;try{meta=split($('source').value).meta;match=visibleEntries().find(x=>x.path!==current&&x.path.split('/')[0]!==meta.lang&&x.meta.translationKey===meta.translationKey);}catch{}
+ $('counterpart').disabled=!current||!meta;$('counterpart').dataset.path=match?.path||'';
+ $('counterpart').textContent=match?(match.published?'打开另一语言版本':'打开译文草稿'):(meta?.lang==='zh'?'新建英文译文':'新建中文译文');
  const view=$('view-post');view.hidden=!current||!sha;if(current&&sha)view.href=base+current.replace(/^([^/]+)\/(.+)\.md$/,'$1/posts/$2/');
 }
 function updateCount(){const v=$('body-editor').value;$('word-count').textContent=v.length.toLocaleString()+' 字符 · '+(v.trim()?v.trim().split(/\s+/).length:0)+' 空格分词';}
@@ -308,7 +328,7 @@ for(let i=0;i<metaIds.length;i++)$(metaIds[i]).addEventListener('change',()=>{
 });
 $('search-post').addEventListener('input',renderLibrary);
 for(const b of document.querySelectorAll('[data-filter]'))b.addEventListener('click',()=>{filter=b.dataset.filter;for(const x of document.querySelectorAll('[data-filter]'))x.setAttribute('aria-pressed',String(x===b));renderLibrary();});
-$('counterpart').addEventListener('click',()=>{if(!busy&&$('counterpart').dataset.path){$('posts').value=$('counterpart').dataset.path;$('open').click();}});
+$('counterpart').addEventListener('click',()=>{if(busy||!current||!finishVisual())return;const path=$('counterpart').dataset.path;if(path){$('posts').value=path;$('open').click();}else{const m=split($('source').value).meta;openNewDialog({lang:m.lang==='zh'?'en':'zh',key:m.translationKey,slug:current.split('/')[1].slice(0,-3)});}});
 const formats={h2:['\n## ','\n'],h3:['\n### ','\n'],bold:['**','**'],italic:['*','*'],quote:['\n> ','\n'],list:['\n- ','\n'],link:['[','](https://example.com)'],math:['$','$'],blockmath:['\n$$\n','\n$$\n'],code:['\n\`\`\`\n','\n\`\`\`\n'],footnote:['','[^note]\n\n[^note]: 注释内容\n']};
 for(const b of document.querySelectorAll('[data-format]'))b.addEventListener('click',()=>{if(busy||!current)return;const [a,z]=formats[b.dataset.format],el=$('body-editor'),s=el.selectionStart,e=el.selectionEnd;el.setRangeText(a+el.value.slice(s,e)+z,s,e,'end');el.focus();bodyChanged();});
 $('pick-image').addEventListener('click',()=>{$('image-details').open=true;$('image-file').click();});
@@ -407,11 +427,11 @@ function openBlock(start,end,initial){
  if(!current||busy||!finishVisual())return;
  const body=$('body-editor').value;
  if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<start||end>body.length)return;
- blockContext={start,end,body,path:current};
+ blockContext={start,end,body,path:current};for(const id of ['block-delete','block-before','block-after'])$(id).hidden=start===end;
  $('block-source').value=initial??body.slice(start,end);
  $('block-dialog').showModal();$('block-source').focus();
 }
-$('visual-add').addEventListener('click',()=>{const body=$('body-editor').value;openBlock(body.length,body.length,(body&&!body.endsWith('\n\n')?(body.endsWith('\n')?'\n':'\n\n'):'')+'');});
+$('visual-add').addEventListener('click',()=>{if(!finishVisual())return;const body=$('body-editor').value;openBlock(body.length,body.length,(body&&!body.endsWith('\n\n')?(body.endsWith('\n')?'\n':'\n\n'):'')+'');});
 for(const id of ['block-cancel','block-dismiss'])$(id).addEventListener('click',()=>$('block-dialog').close());
 $('block-dialog').addEventListener('close',()=>{blockContext=null;});
 $('block-apply').addEventListener('click',()=>{
@@ -429,4 +449,58 @@ function addTag(){const t=$('tag-input').value.trim();if(t&&!/[,，]/.test(t)){c
 $('tag-add').addEventListener('click',addTag);
 $('tag-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addTag();}});
 
-window.addEventListener('beforeunload',event=>{if(activeVisual&&activeVisual.el.textContent!==activeVisual.originalText){if(!finishVisual()){event.preventDefault();event.returnValue='';}}});
+window.addEventListener('beforeunload',event=>{if(activeVisual&&activeVisual.el.textContent!==activeVisual.originalText){event.preventDefault();event.returnValue='';return;}if(current&&$('source').value!==original&&drafts.get(current)?.text!==$('source').value){event.preventDefault();event.returnValue='';}});
+
+async function readDraftIndex(){
+ drafts.clear();draftIndexError=false;
+ try{
+ const prefix=storageKey('');
+ for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k?.startsWith(prefix))continue;const p=k.slice(prefix.length);if(!validPost.test(p))continue;const d=await loadDraft(p);if(d&&typeof d.text==='string')drafts.set(p,d);else draftIndexError=true;}
+ }catch{draftIndexError=true;}
+ renderLibrary();if(draftIndexError)status('部分本地草稿无法读取，请检查令牌或浏览器存储。',true);
+}
+for(const b of document.querySelectorAll('[data-state]'))b.addEventListener('click',()=>{stateFilter=b.dataset.state;for(const x of document.querySelectorAll('[data-state]'))x.setAttribute('aria-pressed',String(x===b));renderLibrary();});
+let translationContext=null,slugManual=false;
+function makeSlug(title){
+ const slug=title.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,70).replace(/-$/,'');
+ return slug||'post-'+crypto.randomUUID().slice(0,8);
+}
+function openNewDialog(context=null){
+ translationContext=context;slugManual=!!context;$('new-error').textContent='';
+ $('new-heading').textContent=context?'新建对应译文':'新建文章';$('new-title').value='';$('new-lang').value=context?.lang||'zh';$('new-lang').disabled=!!context;$('new-slug').value=context?.slug||'';
+ $('new-dialog').showModal();$('new-title').focus();
+}
+$('new-title').addEventListener('input',()=>{if(!slugManual)$('new-slug').value=makeSlug($('new-title').value);});
+$('new-slug').addEventListener('input',()=>{slugManual=true;});
+for(const id of ['new-close','new-cancel'])$(id).addEventListener('click',()=>$('new-dialog').close());
+$('new-confirm').addEventListener('click',async()=>{
+ if(busy)return;busy=true;lockFields(true);
+ try{
+ const title=$('new-title').value.trim(),lang=$('new-lang').value,slug=$('new-slug').value.trim(),p=lang+'/'+slug+'.md';
+ if(!title||!validPost.test(p))throw Error('请输入标题和有效的英文网址标识。');
+ if(visibleEntries().some(x=>x.path===p)||localStorage.getItem(storageKey(p)))throw Error('此网址已存在或有加密草稿，请更换标识。');
+ const translationKey=translationContext?.key||slug;
+ if(visibleEntries().some(x=>x.path.startsWith(lang+'/')&&x.meta.translationKey===translationKey))throw Error('该语言已有相同关联键的文章。');
+ const now=new Date(),today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+ const template='---\ntitle: '+JSON.stringify(title)+'\ndate: '+today+'\nlang: '+lang+'\ntranslationKey: '+JSON.stringify(translationKey)+'\ntags: []\ndraft: false\n---\n\n';
+ await ensureSaved();await setArticle(p,template,null);if(await queueDraft()===false)throw Error('草稿未能写入浏览器，请先下载草稿。');stateFilter='draft';filter='all';
+ for(const b of document.querySelectorAll('[data-state]'))b.setAttribute('aria-pressed',String(b.dataset.state===stateFilter));
+ for(const b of document.querySelectorAll('[data-filter]'))b.setAttribute('aria-pressed',String(b.dataset.filter===filter));
+ renderLibrary();$('new-dialog').close();status('已创建本地草稿，尚未公开。');
+ }catch(e){$('new-error').textContent=e.message;status(e.message,true);}finally{busy=false;lockFields(false);}
+});
+$('block-delete').addEventListener('click',()=>{if(!blockContext||busy||blockContext.path!==current||blockContext.body!==$('body-editor').value)return;if(!confirm('删除这一段？可以撤销。'))return;const {body,start,end}=blockContext;applyVisualBody(replaceBlock(body,start,end,''));$('block-dialog').close();});
+for(const [id,side] of [['block-before','before'],['block-after','after']])$(id).addEventListener('click',()=>{
+ if(!blockContext||busy||blockContext.path!==current||blockContext.body!==$('body-editor').value)return;
+ const {body,start,end}=blockContext;if($('block-source').value!==body.slice(start,end)&&!confirm('放弃本段尚未应用的修改？'))return;
+ const pos=side==='before'?start:end;
+ blockContext={...blockContext,start:pos,end:pos};$('block-source').value=side==='before'?'新段落\n\n':'\n\n新段落';
+ for(const id of ['block-delete','block-before','block-after'])$(id).hidden=true;
+ $('block-source').focus();$('block-source').select();
+});
+
+for(const b of document.querySelectorAll('[data-block-format]'))b.addEventListener('click',()=>{
+ const format=formats[b.dataset.blockFormat],el=$('block-source');if(!format||!blockContext)return;
+ const [a,z]=format,start=el.selectionStart,end=el.selectionEnd;
+ el.setRangeText(a+el.value.slice(start,end)+z,start,end,'end');el.focus();
+});

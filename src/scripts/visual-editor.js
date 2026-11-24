@@ -6,6 +6,8 @@ import remarkRehype from 'remark-rehype';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeKatex from 'rehype-katex';
 import rehypeStringify from 'rehype-stringify';
+import {fromHtml} from 'hast-util-from-html';
+import {sanitize} from 'hast-util-sanitize';
 
 const parser=unified().use(remarkParse).use(remarkGfm).use(remarkMath);
 const parse=source=>parser.parse(source);
@@ -33,7 +35,8 @@ export function replaceBlock(source,start,end,replacement){
  if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<start||end>source.length)throw Error('段落位置无效。');
  return source.slice(0,start)+replacement+source.slice(end);
 }
-const schema={...defaultSchema,attributes:{...defaultSchema.attributes,
+const htmlSchema={...defaultSchema,tagNames:[...defaultSchema.tagNames,'figure','figcaption']};
+const schema={...defaultSchema,tagNames:htmlSchema.tagNames,attributes:{...defaultSchema.attributes,
  code:[...(defaultSchema.attributes.code||[]),['className','math-inline','math-display','language-math']],
  span:[...(defaultSchema.attributes.span||[]),'dataEditStart','dataEditEnd'],
  div:[...(defaultSchema.attributes.div||[]),'dataBlockStart','dataBlockEnd',['className','visual-block']]
@@ -44,12 +47,19 @@ export async function renderVisual(source){
  const wrapBlocks=()=>root=>{
   root.children=root.children.map(n=>{
    const [a,b]=range(n);
-   if(n.type!=='element'||blocks.get(a)!==b||!safeRange(a,b))return n;
+   if(n.type!=='element'||n.properties?.dataBlockStart!==undefined||blocks.get(a)!==b||!safeRange(a,b))return n;
    return {type:'element',tagName:'div',properties:{className:['visual-block'],dataBlockStart:a,dataBlockEnd:b},children:[n]};
   });
  };
  const processor=unified().use(remarkParse).use(remarkGfm).use(remarkMath)
- .use(remarkRehype,{handlers:{text(state,node){
+ .use(remarkRehype,{handlers:{html(state,node){
+  // Parse raw HTML separately and strip editor-only attributes before attaching them.
+  const [a,b]=range(node);
+  const safe=sanitize(fromHtml(node.value,{fragment:true}),htmlSchema);
+  const block=blocks.get(a)===b&&safeRange(a,b);
+  const element={type:'element',tagName:block?'div':'span',properties:block?{className:['visual-block'],dataBlockStart:a,dataBlockEnd:b}:{},children:safe.children};
+  state.patch(node,element);return element;
+ },text(state,node){
   const [a,b]=range(node);
   const value=node.value;
   const text={type:'text',value};

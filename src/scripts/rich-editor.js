@@ -91,7 +91,7 @@ export function createRichEditor({mount,source,base,onChange,onError,onBlockEdit
  notify();
  return {
   command,flush:()=>!disposed&&synchronize(),hasInvalid:()=>invalid,
-  setEditable(value){enabled=value;if(!disposed)view.setProps({editable:()=>enabled});},
+  setEditable(value){if(enabled===value)return;enabled=value;if(!disposed)view.setProps({editable:()=>enabled});},
   destroy(){disposed=true;view.destroy();mount.replaceChildren();},
   replaceBlock(pos,raw,replacement){
    if(!enabled||disposed)return false;const n=view.state.doc.nodeAt(pos);

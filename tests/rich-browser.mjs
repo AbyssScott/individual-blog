@@ -3,6 +3,7 @@ import {createServer} from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
 import {resolve,extname,sep} from 'node:path';
 import {chromium} from 'playwright';
+import {readRich} from '../src/scripts/rich-model.js';
 const base='/individual-blog/',root=resolve('dist');
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.woff2':'font/woff2','.woff':'font/woff','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp'};
 const server=createServer(async(req,res)=>{
@@ -16,11 +17,12 @@ const server=createServer(async(req,res)=>{
  }catch{res.writeHead(404).end();}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
-let browser;
+let browser,page;
 try{
  browser=await chromium.launch({headless:true});
- const page=await browser.newPage();
- const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ page=await browser.newPage();
+ const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message);});
+ page.on('dialog',async d=>{console.error('Unexpected dialog:',d.message());await d.dismiss();});
  const markdown='---\ntitle: "Browser test"\ndate: 2026-11-24\nlang: zh\ntranslationKey: browser-test\ntags: []\ndraft: false\n---\n\nFirst paragraph.\n\n$$\nx^2\n$$\n\nLast paragraph.\n';
  const file={name:'browser-test.md',path:'src/content/posts/zh/browser-test.md',type:'file',sha:'fake-blob',encoding:'base64',content:Buffer.from(markdown).toString('base64')};
  const prefix='/repos/AbyssScott/individual-blog';
@@ -45,17 +47,29 @@ try{
  const prose=page.locator('#rich-editor .ProseMirror');
  await prose.waitFor({state:'visible'});
  assert.equal(await page.locator('#source').inputValue(),markdown);
+ await page.waitForFunction(()=>document.querySelector('#rich-editor .ProseMirror')?.isContentEditable);
  const first=prose.locator(':scope > p').first();
- await first.click();await page.keyboard.press('End');await page.keyboard.type('!');
- await page.keyboard.press('Enter');await page.keyboard.type('New paragraph');
- await page.waitForFunction(()=>document.querySelector('#source').value.includes('First paragraph.!\n\nNew paragraph'));
+ const bodyOf=full=>full.replace(/^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/,'');
+ const paragraphs=async()=>{const doc=readRich(bodyOf(await page.locator('#source').inputValue())).doc;const out=[];doc.forEach(n=>{if(n.type.name==='paragraph')out.push(n.textContent);});return out;};
+ async function check(label,fn){
+  for(let i=0;i<50;i++){if(await fn())return;await page.waitForTimeout(100);}
+  throw Error(label+' did not reach expected state');
+ }
+ await first.click();
+ await page.keyboard.press('Home');await page.keyboard.press('End');
+ await page.keyboard.insertText('!');
+ await check('typing exclamation',async()=> (await paragraphs())[0]==='First paragraph.!');
+ await page.keyboard.press('Enter');
+ await check('Enter creates a live paragraph',async()=>await prose.locator(':scope > p').count()===3);
+ await page.keyboard.insertText('New paragraph');
+ await check('new paragraph is serialized',async()=>{const p=await paragraphs();return p[0]==='First paragraph.!'&&p[1]==='New paragraph'&&p[2]==='Last paragraph.';});
  await page.keyboard.press('Shift+Home');await page.locator('[data-rich=bold]').click();
- await page.waitForFunction(()=>document.querySelector('#source').value.includes('**New paragraph**'));
+ await check('bold serialized',async()=> (await page.locator('#source').inputValue()).includes('**New paragraph**'));
  assert.ok((await page.locator('#source').inputValue()).includes('$$\nx^2\n$$'));
  await page.locator('[data-rich=undo]').click();
- await page.waitForFunction(()=>!document.querySelector('#source').value.includes('**New paragraph**'));
+ await check('undo bold',async()=>!(await page.locator('#source').inputValue()).includes('**New paragraph**'));
  await page.locator('[data-rich=redo]').click();
- await page.waitForFunction(()=>document.querySelector('#source').value.includes('**New paragraph**'));
+ await check('redo bold',async()=> (await page.locator('#source').inputValue()).includes('**New paragraph**'));
  await page.locator('#save-draft').click();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('已保存'));
  const edited=await page.locator('#source').inputValue();
@@ -68,4 +82,9 @@ try{
  assert.equal(await page.locator('#source').inputValue(),edited);
  assert.deepEqual(errors,[]);
  console.log('Rich editor browser smoke test passed (mock API; no real writes).');
+ }catch(error){
+ if(page)console.error('Browser diagnostic',JSON.stringify(await page.evaluate(()=>({
+  source:document.querySelector('#source')?.value,richText:document.querySelector('#rich-editor')?.innerText,richState:document.querySelector('#rich-state')?.textContent,status:document.querySelector('#status')?.textContent,editable:document.querySelector('#rich-editor .ProseMirror')?.isContentEditable,selection:window.getSelection()?.toString(),active:document.activeElement?.outerHTML.slice(0,250)
+ })).catch(()=>({unavailable:true}))));
+ throw error;
 }finally{await browser?.close();await new Promise(r=>server.close(r));}

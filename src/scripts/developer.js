@@ -70,6 +70,7 @@ const storageKey=p=>'blog-developer-encrypted-draft-v1:'+p;
 function queueDraft() {
   const p=current, text=$('source').value, k=key, baseline=original, baselineSha=sha;
   if(!p||!k)return draftQueue;
+  if(drafts.get(p)?.text===text&&drafts.get(p)?.baselineSha===baselineSha&&!(text===baseline&&baselineSha))return draftQueue;
   draftQueue=draftQueue.catch(()=>{}).then(async()=>{
     try {
       if(text===baseline&&baselineSha){localStorage.removeItem(storageKey(p));drafts.delete(p);}
@@ -80,11 +81,12 @@ function queueDraft() {
         drafts.set(p,{text,baselineSha});
       }
       if(current===p&&$('source').value===text) $('draft-state').textContent=text===baseline&&baselineSha?'无未保存修改':'草稿已加密保存在此浏览器，尚未发布。';
-      if(key===k){renderLibrary();updateCounterpart();}
-    } catch { if(current===p)$('draft-state').textContent='本地草稿保存失败，请使用“下载草稿”。'; }
+      if(key===k){renderLibrary();updateCounterpart();}return true;
+    } catch { if(current===p)$('draft-state').textContent='本地草稿保存失败，请使用“下载草稿”。';return false; }
   });
   return draftQueue;
 }
+async function ensureSaved(){if(await queueDraft()===false)throw Error('当前草稿尚未成功保存，请先下载草稿再切换。');}
 async function loadDraft(p) {
   try {
     const raw=localStorage.getItem(storageKey(p));if(!raw)return null;
@@ -94,26 +96,24 @@ async function loadDraft(p) {
 }
 function editView() { activeVisual=null;visualUndo=[];syncFields();setMode('visual'); }
 async function setArticle(p,text,blob) {
-  current=p;sha=blob;original=text;$('source').value=text;$('path').textContent=root+p;
-  $('remove').disabled=false;$('history-button').disabled=!blob;$('history').hidden=true;editView();
-  const draft=await loadDraft(p);
-  if(draft&&typeof draft.text==='string'&&draft.text!==text) {
-    if(draft.baselineSha!==blob) {
-      // The server changed after the draft was created: do not silently apply it.
-      if(confirm('本地草稿基于旧版本。是否下载旧草稿以便手动合并？（不会覆盖最新文章。）')) {
-        const url=URL.createObjectURL(new Blob([draft.text],{type:'text/markdown;charset=utf-8'}));
-        const a=document.createElement('a');a.href=url;a.download='recovery-'+p.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      }
-      status('远程文章已更新；请手动合并旧草稿，避免覆盖其他修改。',true);
-    } else $('source').value=draft.text;
-  }
-  syncFields();scheduleVisual();$('visual-editor').scrollTop=0;$('body-editor').scrollTop=0;$('body-editor').setSelectionRange(0,0);$('source').scrollTop=0;renderLibrary();updateCounterpart();
-  $('draft-state').textContent=$('source').value===original?'无未保存修改':'已恢复本地草稿，尚未发布。';
+ const draft=await loadDraft(p),raw=localStorage.getItem(storageKey(p));
+ if(raw&&!draft)throw Error('此文章有无法解密的本地草稿。为避免覆盖，暂时不能打开。请使用原令牌恢复。');
+ if(draft&&draft.baselineSha!==blob&&draft.text!==text){
+  if(!confirm('此草稿基于旧版本。是否下载旧草稿、保留加密备份并打开远程最新版？取消将保留原草稿。'))throw Error('已保留旧草稿，未切换文章。');
+  const url=URL.createObjectURL(new Blob([draft.text],{type:'text/markdown;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='recovery-'+p.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  localStorage.setItem('blog-developer-recovery-v1:'+p+':'+Date.now(),raw);
+  localStorage.removeItem(storageKey(p));drafts.delete(p);
+ }
+ current=p;sha=blob;original=text;$('source').value=(draft&&draft.baselineSha===blob)?draft.text:text;$('path').textContent=root+p;
+ $('remove').disabled=false;$('history-button').disabled=!blob;$('history').hidden=true;editView();
+ syncFields();scheduleVisual();$('visual-editor').scrollTop=0;$('body-editor').scrollTop=0;$('body-editor').setSelectionRange(0,0);$('source').scrollTop=0;renderLibrary();updateCounterpart();
+ $('draft-state').textContent=(!blob||$('source').value!==original)?'本地草稿，尚未发布。':'无未保存修改';
 }
 async function openPost(p) {
  if(!validPost.test(p))throw Error('无效文章路径。');
  if(p===current)return;
- await queueDraft();
+ await ensureSaved();
  const draft=drafts.get(p);
  if(draft&&!library.some(x=>x.path===p)&&!draft.baselineSha){await setArticle(p,draft.text,null);return;}
  const f=await readPost(p);await setArticle(p,f.text,f.sha);
@@ -168,10 +168,10 @@ async function publish() {
   sha=result.content.sha;original=text;lastCommit=result.commit.sha;
   await queueDraft();$('remove').disabled=false;$('history-button').disabled=false;$('check').disabled=false;
   status('文章已提交，GitHub Pages 尚需完成构建。Commit: '+lastCommit.slice(0,7));
-  await refreshPosts();
+  await refreshPosts();updateCounterpart();
 }
 async function newPost() {
- await queueDraft();
+ await ensureSaved();
  openNewDialog();
 }
 async function removePost() {
@@ -233,15 +233,15 @@ async function login() {
     $('identity').textContent='已验证：'+account.login;
     $('login').hidden=true;$('workspace').hidden=false;
     const initial=new URLSearchParams(location.search).get('post');
-    if(initial&&posts.includes(initial))await openPost(initial);
+    try {if(initial&&(posts.includes(initial)||drafts.has(initial)))await openPost(initial);
     else if(posts.length)await openPost(posts[0]);
     else if(drafts.size)await openPost(drafts.keys().next().value);
-    else { $('remove').disabled=true;$('history-button').disabled=true; }
-    status('已连接 GitHub。保存时由 GitHub 强制执行仓库写入权限。');
+    else { $('remove').disabled=true;$('history-button').disabled=true; }}catch(e){status(e.message,true);return;}
+    if(!draftIndexError)status('已连接 GitHub。保存时由 GitHub 强制执行仓库写入权限。');
   } catch(error) {token='';key=null;$('login').hidden=false;$('workspace').hidden=true;throw error;}
 }
 async function logout() {
-  await queueDraft();drafts.clear();activeVisual=null;visualUndo=[];clearTimeout(visualTimer);$('visual-editor').replaceChildren();token='';key=null;current='';sha=null;original='';lastCommit='';$('source').value='';$('token').value='';$('preview').replaceChildren();$('path').textContent='';$('history').hidden=true;$('check').disabled=true;$('workspace').hidden=true;$('login').hidden=false;status('已退出，令牌已从页面内存清除。');
+  await ensureSaved();drafts.clear();$('post-list').replaceChildren();$('posts').replaceChildren();$('body-editor').value='';for(const id of metaIds)$(id).value='';$('tag-chips').replaceChildren();activeVisual=null;visualUndo=[];clearTimeout(visualTimer);$('visual-editor').replaceChildren();token='';key=null;current='';sha=null;original='';lastCommit='';$('source').value='';$('token').value='';$('preview').replaceChildren();$('path').textContent='';$('history').hidden=true;$('check').disabled=true;$('workspace').hidden=true;$('login').hidden=false;status('已退出，令牌已从页面内存清除。');
 }
 function action(id,fn) {
   $(id).addEventListener('click',async()=>{
@@ -449,7 +449,7 @@ function addTag(){const t=$('tag-input').value.trim();if(t&&!/[,，]/.test(t)){c
 $('tag-add').addEventListener('click',addTag);
 $('tag-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addTag();}});
 
-window.addEventListener('beforeunload',event=>{if(activeVisual&&activeVisual.el.textContent!==activeVisual.originalText){if(!finishVisual()){event.preventDefault();event.returnValue='';}}});
+window.addEventListener('beforeunload',event=>{if(activeVisual&&activeVisual.el.textContent!==activeVisual.originalText){event.preventDefault();event.returnValue='';return;}if(current&&$('source').value!==original&&drafts.get(current)?.text!==$('source').value){event.preventDefault();event.returnValue='';}});
 
 async function readDraftIndex(){
  drafts.clear();draftIndexError=false;
@@ -466,7 +466,7 @@ function makeSlug(title){
  return slug||'post-'+crypto.randomUUID().slice(0,8);
 }
 function openNewDialog(context=null){
- translationContext=context;slugManual=!!context;
+ translationContext=context;slugManual=!!context;$('new-error').textContent='';
  $('new-heading').textContent=context?'新建对应译文':'新建文章';$('new-title').value='';$('new-lang').value=context?.lang||'zh';$('new-lang').disabled=!!context;$('new-slug').value=context?.slug||'';
  $('new-dialog').showModal();$('new-title').focus();
 }
@@ -478,16 +478,16 @@ $('new-confirm').addEventListener('click',async()=>{
  try{
  const title=$('new-title').value.trim(),lang=$('new-lang').value,slug=$('new-slug').value.trim(),p=lang+'/'+slug+'.md';
  if(!title||!validPost.test(p))throw Error('请输入标题和有效的英文网址标识。');
- if(visibleEntries().some(x=>x.path===p))throw Error('此网址已经存在，请更换标识。');
+ if(visibleEntries().some(x=>x.path===p)||localStorage.getItem(storageKey(p)))throw Error('此网址已存在或有加密草稿，请更换标识。');
  const translationKey=translationContext?.key||slug;
  if(visibleEntries().some(x=>x.path.startsWith(lang+'/')&&x.meta.translationKey===translationKey))throw Error('该语言已有相同关联键的文章。');
  const now=new Date(),today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
  const template='---\ntitle: '+JSON.stringify(title)+'\ndate: '+today+'\nlang: '+lang+'\ntranslationKey: '+JSON.stringify(translationKey)+'\ntags: []\ndraft: false\n---\n\n';
- await queueDraft();await setArticle(p,template,null);await queueDraft();stateFilter='draft';filter='all';
+ await ensureSaved();await setArticle(p,template,null);if(await queueDraft()===false)throw Error('草稿未能写入浏览器，请先下载草稿。');stateFilter='draft';filter='all';
  for(const b of document.querySelectorAll('[data-state]'))b.setAttribute('aria-pressed',String(b.dataset.state===stateFilter));
  for(const b of document.querySelectorAll('[data-filter]'))b.setAttribute('aria-pressed',String(b.dataset.filter===filter));
  renderLibrary();$('new-dialog').close();status('已创建本地草稿，尚未公开。');
- }catch(e){status(e.message,true);}finally{busy=false;lockFields(false);}
+ }catch(e){$('new-error').textContent=e.message;status(e.message,true);}finally{busy=false;lockFields(false);}
 });
 $('block-delete').addEventListener('click',()=>{if(!blockContext||busy||blockContext.path!==current||blockContext.body!==$('body-editor').value)return;if(!confirm('删除这一段？可以撤销。'))return;const {body,start,end}=blockContext;applyVisualBody(replaceBlock(body,start,end,''));$('block-dialog').close();});
 for(const [id,side] of [['block-before','before'],['block-after','after']])$(id).addEventListener('click',()=>{
@@ -497,4 +497,10 @@ for(const [id,side] of [['block-before','before'],['block-after','after']])$(id)
  blockContext={...blockContext,start:pos,end:pos};$('block-source').value=side==='before'?'新段落\n\n':'\n\n新段落';
  for(const id of ['block-delete','block-before','block-after'])$(id).hidden=true;
  $('block-source').focus();$('block-source').select();
+});
+
+for(const b of document.querySelectorAll('[data-block-format]'))b.addEventListener('click',()=>{
+ const format=formats[b.dataset.blockFormat],el=$('block-source');if(!format||!blockContext)return;
+ const [a,z]=format,start=el.selectionStart,end=el.selectionEnd;
+ el.setRangeText(a+el.value.slice(start,end)+z,start,end,'end');el.focus();
 });

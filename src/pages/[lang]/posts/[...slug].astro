@@ -24,6 +24,7 @@ export async function getStaticPaths() {
 const { post, translationPath } = Astro.props;
 const lang = post.data.lang as Lang;
 const { Content } = await render(post);
+const editorUrl = withBase(`/developer/?post=${encodeURIComponent(post.id + ".md")}`);
 ---
 <BaseLayout lang={lang} active="home" title={post.data.title} description={post.data.description} isPost={true} translationPath={translationPath} canonicalPath={postPath(post)}>
   <article class="post-page">
@@ -38,4 +39,16 @@ const { Content } = await render(post);
     <div class="post-endmark" aria-hidden="true">✳</div>
     <Comments lang={lang} translationKey={post.data.translationKey} />
   </article>
+  <script is:inline define:vars={{ editorUrl }}>
+    (() => {
+      const openEditor = () => window.location.assign(editorUrl);
+      if (location.hash === '#edit') openEditor();
+      document.addEventListener('keydown', (event) => {
+        if (event.altKey && event.shiftKey && event.code === 'KeyE' && !event.repeat &&
+          !event.target?.matches?.('input, textarea, [contenteditable]')) {
+          event.preventDefault(); openEditor();
+        }
+      });
+    })();
+  </script>
 </BaseLayout>

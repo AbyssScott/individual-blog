@@ -289,7 +289,7 @@ function syncFields(){
 function schedulePreview(){clearTimeout(previewTimer);revision++;scheduleVisual();if(mode==='split'||mode==='preview'){previewTimer=setTimeout(()=>preview().catch(e=>status(e.message,true)),200);}}
 function setMode(next){
  if(next!=='raw'&&current){try{split($('source').value);}catch(e){status(e.message,true);next='raw';}}
- if(mode==='raw'&&next!=='raw')syncFields();mode=next;revision++;
+ if(mode==='raw'&&next!=='raw')syncFields();if(mode!==next&&next==='visual')visualUndo=[];mode=next;revision++;
  $('editor-grid').dataset.mode=mode;$('visual-editor').hidden=mode!=='visual';$('visual-tools').hidden=mode!=='visual';$('source').hidden=mode!=='raw';$('body-editor').hidden=!(mode==='body'||mode==='split');$('preview').hidden=!(mode==='preview'||mode==='split');$('format-bar').hidden=mode==='raw'||mode==='preview'||mode==='visual';
  for(const [id,m] of [['visual-mode','visual'],['edit','body'],['split-mode','split'],['preview-button','preview'],['raw-mode','raw']])$(id).setAttribute('aria-pressed',String(mode===m));
  for(const id of metaIds)$(id).disabled=mode==='raw';$('tag-input').disabled=mode==='raw';$('tag-add').disabled=mode==='raw';renderTags();
@@ -325,7 +325,7 @@ $('close-details').addEventListener('click',()=>togglePanel('details',true));
 $('toggle-library').addEventListener('click',()=>togglePanel('library',!layout.classList.contains('hide-library')));
 togglePanel('details',true);$('toggle-library').setAttribute('aria-pressed','true');
 
-let activeVisual=null,visualUndo=[],visualTimer,visualRevision=0,blockContext=null;
+let activeVisual=null,visualUndo=[],visualTimer,visualRevision=0,blockContext=null,renderedBody=null,renderedPath=null;
 function scheduleVisual(){
  clearTimeout(visualTimer);visualRevision++;
  if(mode==='visual'&&!activeVisual)visualTimer=setTimeout(()=>drawVisual().catch(e=>status(e.message,true)),60);
@@ -353,7 +353,7 @@ async function drawVisual(){
  for(const block of template.content.querySelectorAll('[data-block-start][data-block-end]')){
   const b=document.createElement('button');b.type='button';b.className='block-edit';b.textContent='✎';b.title='编辑本段源码';b.setAttribute('aria-label','编辑本段源码');block.append(b);
  }
- const top=output.scrollTop;output.replaceChildren(template.content);output.scrollTop=top;
+ const top=output.scrollTop;output.replaceChildren(template.content);output.scrollTop=top;renderedBody=body;renderedPath=p;
  $('visual-undo').disabled=!visualUndo.length;
  if(!body.trim()){const hint=document.createElement('p');hint.className='muted';hint.textContent='点击「＋ 段落」开始写作。';output.append(hint);}
 }
@@ -371,11 +371,12 @@ function finishVisual(cancel=false){
 function beginVisual(el,event){
  if(busy||!current||mode!=='visual'||activeVisual?.el===el)return;
  if(!finishVisual())return;
+ if(renderedPath!==current||renderedBody!==$('body-editor').value){scheduleVisual();return;}
  const start=Number(el.dataset.editStart),end=Number(el.dataset.editEnd),body=$('body-editor').value;
  const originalText=el.textContent||'';
  if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end>body.length||end<=start)return;
  const sel=window.getSelection();const offset=sel?.anchorNode===el.firstChild?sel.anchorOffset:originalText.length;
- activeVisual={el,start,end,body,originalText};el.contentEditable='true';el.spellcheck=false;el.focus();
+ activeVisual={el,start,end,body,originalText};el.contentEditable='plaintext-only';el.spellcheck=false;el.focus();
  try{const r=document.createRange();r.setStart(el.firstChild,Math.min(offset,originalText.length));r.collapse(true);sel.removeAllRanges();sel.addRange(r);}catch{}
  $('visual-cancel').hidden=false;
  el.addEventListener('blur',()=>{if(activeVisual?.el===el)finishVisual();},{once:true});
@@ -384,7 +385,7 @@ $('visual-editor').addEventListener('click',event=>{
  if(busy||!current)return;
  const element=event.target instanceof Element?event.target:null;
  const b=element?.closest('.block-edit');
- if(b){if(!finishVisual())return;const block=b.closest('[data-block-start]');openBlock(Number(block.dataset.blockStart),Number(block.dataset.blockEnd));return;}
+ if(b){if(!finishVisual())return;if(renderedPath!==current||renderedBody!==$('body-editor').value){scheduleVisual();return;}const block=b.closest('[data-block-start]');openBlock(Number(block.dataset.blockStart),Number(block.dataset.blockEnd));return;}
  const el=element?.closest('[data-edit-start][data-edit-end]');
  if(el)beginVisual(el,event);
 });
@@ -418,7 +419,7 @@ $('block-apply').addEventListener('click',()=>{
  const {body,start,end}=blockContext;applyVisualBody(replaceBlock(body,start,end,$('block-source').value));$('block-dialog').close();
 });
 $('visual-undo').addEventListener('click',()=>{if(busy||!finishVisual()||!visualUndo.length)return;applyVisualBody(visualUndo.pop(),false);$('visual-undo').disabled=!visualUndo.length;});
-function tagValues(){try{return split($('source').value).meta.tags||[];}catch{return [];}}
+function tagValues(){try{const t=split($('source').value).meta.tags;return Array.isArray(t)?t:[];}catch{return [];}}
 function renderTags(){
  const chips=$('tag-chips');chips.replaceChildren();
  for(const tag of tagValues()){const button=document.createElement('button');button.type='button';button.textContent=tag+' ×';button.disabled=mode==='raw';button.setAttribute('aria-label','移除标签 '+tag);button.addEventListener('click',()=>changeTags(tagValues().filter(t=>t!==tag)));chips.append(button);}
@@ -427,3 +428,5 @@ function changeTags(values){if(busy||!current||mode==='raw'||!finishVisual())ret
 function addTag(){const t=$('tag-input').value.trim();if(t&&!/[,，]/.test(t)){changeTags([...new Set([...tagValues(),t])]);$('tag-input').value='';}}
 $('tag-add').addEventListener('click',addTag);
 $('tag-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addTag();}});
+
+window.addEventListener('beforeunload',event=>{if(activeVisual&&activeVisual.el.textContent!==activeVisual.originalText){if(!finishVisual()){event.preventDefault();event.returnValue='';}}});

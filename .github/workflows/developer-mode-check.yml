@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feature/blog-developer-mode, feature/developer-studio-ui, feature/studio-visual-polish, feature/studio-visual-editing, feature/studio-simplify-modes, feature/studio-writing-workflow, feature/studio-writing-comfort]
+    branches: [feature/blog-developer-mode, feature/developer-studio-ui, feature/studio-visual-polish, feature/studio-visual-editing, feature/studio-simplify-modes, feature/studio-writing-workflow, feature/studio-writing-comfort, feature/studio-rich-text]
 permissions:
   contents: read
 jobs:
@@ -21,3 +21,5 @@ jobs:
       - run: npm run build
       - name: Verify editor route exists
         run: test -f dist/developer/index.html
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/rich-browser.mjs

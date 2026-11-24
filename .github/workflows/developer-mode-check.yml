@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feature/blog-developer-mode, feature/developer-studio-ui, feature/studio-visual-polish, feature/studio-visual-editing, feature/studio-simplify-modes, feature/studio-writing-workflow]
+    branches: [feature/blog-developer-mode, feature/developer-studio-ui, feature/studio-visual-polish, feature/studio-visual-editing, feature/studio-simplify-modes, feature/studio-writing-workflow, feature/studio-writing-comfort]
 permissions:
   contents: read
 jobs:
@@ -16,7 +16,7 @@ jobs:
           node-version: '24'
       - run: npm install --no-audit --no-fund
       - run: node --check src/scripts/developer.js
-      - run: node --test tests/visual-editor.test.mjs
+      - run: node --test tests/*.test.mjs
       - run: npm run check
       - run: npm run build
       - name: Verify editor route exists

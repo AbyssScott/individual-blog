@@ -8,8 +8,13 @@ import rehypeKatex from 'rehype-katex';
 import rehypeStringify from 'rehype-stringify';
 import { parse as parseYaml, parseDocument } from 'yaml';
 import { renderVisual, replaceVisualText, replaceBlock } from './visual-editor.js';
+import { normalizePrefs, clampSplit, scrollFraction, scrollTarget } from './studio-preferences.js';
 
 const $ = id => document.getElementById(id);
+const PREF_KEY='blog-developer-ui-v1';
+let prefs=normalizePrefs(null);
+try{prefs=normalizePrefs(JSON.parse(localStorage.getItem(PREF_KEY)||'null'));}catch{}
+function persistPrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs));}catch{}}
 const repo = 'AbyssScott/individual-blog';
 const branch = 'main';
 const root = 'src/content/posts/';
@@ -70,7 +75,7 @@ const storageKey=p=>'blog-developer-encrypted-draft-v1:'+p;
 function queueDraft() {
   const p=current, text=$('source').value, k=key, baseline=original, baselineSha=sha;
   if(!p||!k)return draftQueue;
-  if(drafts.get(p)?.text===text&&drafts.get(p)?.baselineSha===baselineSha&&!(text===baseline&&baselineSha))return draftQueue;
+  // Serialize every captured snapshot, including reversions while an earlier save is pending.
   draftQueue=draftQueue.catch(()=>{}).then(async()=>{
     try {
       if(text===baseline&&baselineSha){localStorage.removeItem(storageKey(p));drafts.delete(p);}
@@ -94,7 +99,7 @@ async function loadDraft(p) {
     return JSON.parse(dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(data.iv),additionalData:enc.encode(p)},key,from64(data.data))));
   } catch { status('此路径可能存在用其他令牌加密的草稿，无法解密。',true);return null; }
 }
-function editView() { activeVisual=null;visualUndo=[];syncFields();setMode('visual'); }
+function editView() { activeVisual=null;visualUndo=[];syncFields();setMode(prefs.mode); }
 async function setArticle(p,text,blob) {
  const draft=await loadDraft(p),raw=localStorage.getItem(storageKey(p));
  if(raw&&!draft)throw Error('此文章有无法解密的本地草稿。为避免覆盖，暂时不能打开。请使用原令牌恢复。');
@@ -105,7 +110,7 @@ async function setArticle(p,text,blob) {
   localStorage.setItem('blog-developer-recovery-v1:'+p+':'+Date.now(),raw);
   localStorage.removeItem(storageKey(p));drafts.delete(p);
  }
- current=p;sha=blob;original=text;$('source').value=(draft&&draft.baselineSha===blob)?draft.text:text;$('path').textContent=root+p;
+ current=p;sha=blob;original=text;if(blob){prefs.lastPost=p;persistPrefs();}$('source').value=(draft&&draft.baselineSha===blob)?draft.text:text;$('path').textContent=root+p;
  $('remove').disabled=false;$('history-button').disabled=!blob;$('history').hidden=true;editView();
  syncFields();scheduleVisual();$('visual-editor').scrollTop=0;$('body-editor').scrollTop=0;$('body-editor').setSelectionRange(0,0);$('source').scrollTop=0;renderLibrary();updateCounterpart();
  $('draft-state').textContent=(!blob||$('source').value!==original)?'本地草稿，尚未发布。':'无未保存修改';
@@ -165,7 +170,7 @@ async function publish() {
     if(split(f.text).meta.translationKey===meta.translationKey)throw Error('同一语言中 translationKey 已被 '+other+' 使用。');
   }
   const result=await repoApi('/contents/'+filePath(root+p),'PUT',{message:'Update blog post: '+p,content:to64(enc.encode(text)),branch,...(sha?{sha}:{})});
-  sha=result.content.sha;original=text;lastCommit=result.commit.sha;
+  sha=result.content.sha;original=text;lastCommit=result.commit.sha;prefs.lastPost=p;persistPrefs();trackDeployment(lastCommit);
   await queueDraft();$('remove').disabled=false;$('history-button').disabled=false;$('check').disabled=false;
   status('文章已提交，GitHub Pages 尚需完成构建。Commit: '+lastCommit.slice(0,7));
   await refreshPosts();updateCounterpart();
@@ -179,7 +184,7 @@ async function removePost() {
   if(!sha){if(!confirm('永久删除这篇本地草稿？'))return;await draftQueue;localStorage.removeItem(storageKey(p));drafts.delete(p);current='';original='';$('source').value='';$('path').textContent='';editView();renderLibrary();status('本地草稿已删除。');return;}
   if(prompt('删除会从博客移除文章，但历史记录仍公开。请输入完整路径 '+p+' 确认。')!==p)return;
   const result=await repoApi('/contents/'+filePath(root+p),'DELETE',{message:'Remove blog post: '+p,sha,branch});
-  lastCommit=result.commit.sha;$('check').disabled=false;
+  lastCommit=result.commit.sha;$('check').disabled=false;trackDeployment(lastCommit);
   await draftQueue;try{localStorage.removeItem(storageKey(p));}catch{}drafts.delete(p);current='';sha=null;original='';$('source').value='';$('path').textContent='';$('history').hidden=true;editView();$('remove').disabled=true;$('history-button').disabled=true;
   syncFields();status('删除已提交，等待网站构建。');await refreshPosts();
 }
@@ -214,11 +219,35 @@ async function upload(selectedFile) {
   await repoApi('/contents/public/images/'+name,'PUT',{message:'Upload blog image '+name,content:to64(bytes),branch});
   insertImage(name);await refreshImages();$('image-file').value='';status('图片已提交，网站构建后可见。');
 }
-async function checkStatus() {
-  if(!lastCommit)return;
-  const data=await repoApi('/actions/workflows/deploy.yml/runs?head_sha='+lastCommit+'&per_page=5');
-  const run=data.workflow_runs?.[0];
-  status(run?'发布任务：'+run.status+(run.conclusion?' / '+run.conclusion:'')+'。可通过发布记录查看详情。':'尚未找到构建任务，请稍后重新检查。');
+let deployTimer,deployGeneration=0;
+function setDeployment(text,state='pending'){const el=$('deploy-state');el.hidden=!text;el.textContent=text;el.dataset.state=state;}
+function stopDeployment(){clearTimeout(deployTimer);deployGeneration++;setDeployment('');}
+async function deploymentResult(commit){
+ const data=await repoApi('/actions/workflows/deploy.yml/runs?head_sha='+encodeURIComponent(commit)+'&per_page=5');
+ const run=data.workflow_runs?.[0];
+ if(!run)return {text:'等待部署任务',state:'pending'};
+ if(run.status!=='completed')return {text:'网站部署中…',state:'pending'};
+ return run.conclusion==='success'?{text:'发布完成',state:'success'}:{text:'部署未成功：'+String(run.conclusion||'未知结果'),state:'error'};
+}
+function trackDeployment(commit){
+ stopDeployment();const generation=deployGeneration;let attempts=0;
+ setDeployment('已提交 · 等待部署');
+ async function poll(){
+  if(!token||generation!==deployGeneration||lastCommit!==commit)return;
+  let result;
+  try{result=await deploymentResult(commit);}catch{result={text:'暂时无法查询部署，可手动检查',state:'error'};}
+  if(!token||generation!==deployGeneration||lastCommit!==commit)return;
+  setDeployment(result.text,result.state);
+  if(result.state==='pending'&&++attempts<36)deployTimer=setTimeout(poll,10000);
+  else if(result.state==='pending')setDeployment('尚未确认部署 · 请手动检查');
+ }
+ deployTimer=setTimeout(poll,2500);
+}
+async function checkStatus(){
+ if(!lastCommit)return;
+ const commit=lastCommit,result=await deploymentResult(commit);
+ if(commit===lastCommit)setDeployment(result.text,result.state);
+ status(result.text,result.state==='error');
 }
 async function login() {
   token=$('token').value.trim();$('token').value='';
@@ -232,7 +261,7 @@ async function login() {
     const posts=await refreshPosts();await refreshImages();await readDraftIndex();
     $('identity').textContent='已验证：'+account.login;
     $('login').hidden=true;$('workspace').hidden=false;
-    const initial=new URLSearchParams(location.search).get('post');
+    const initial=new URLSearchParams(location.search).get('post')||prefs.lastPost;
     try {if(initial&&(posts.includes(initial)||drafts.has(initial)))await openPost(initial);
     else if(posts.length)await openPost(posts[0]);
     else if(drafts.size)await openPost(drafts.keys().next().value);
@@ -241,7 +270,7 @@ async function login() {
   } catch(error) {token='';key=null;$('login').hidden=false;$('workspace').hidden=true;throw error;}
 }
 async function logout() {
-  await ensureSaved();drafts.clear();$('post-list').replaceChildren();$('posts').replaceChildren();$('body-editor').value='';for(const id of metaIds)$(id).value='';$('tag-chips').replaceChildren();activeVisual=null;visualUndo=[];clearTimeout(visualTimer);$('visual-editor').replaceChildren();token='';key=null;current='';sha=null;original='';lastCommit='';$('source').value='';$('token').value='';$('preview').replaceChildren();$('path').textContent='';$('history').hidden=true;$('check').disabled=true;$('workspace').hidden=true;$('login').hidden=false;status('已退出，令牌已从页面内存清除。');
+  await ensureSaved();stopDeployment();drafts.clear();$('post-list').replaceChildren();$('posts').replaceChildren();$('body-editor').value='';for(const id of metaIds)$(id).value='';$('tag-chips').replaceChildren();activeVisual=null;visualUndo=[];clearTimeout(visualTimer);$('visual-editor').replaceChildren();token='';key=null;current='';sha=null;original='';lastCommit='';$('source').value='';$('token').value='';$('preview').replaceChildren();$('path').textContent='';$('history').hidden=true;$('check').disabled=true;$('workspace').hidden=true;$('login').hidden=false;status('已退出，令牌已从页面内存清除。');
 }
 function action(id,fn) {
   $(id).addEventListener('click',async()=>{
@@ -251,15 +280,16 @@ function action(id,fn) {
   });
 }
 action('connect',login);action('logout',logout);action('open',()=>openPost($('posts').value));action('new',newPost);
-action('visual-mode',()=>setMode('visual'));action('edit',()=>setMode('body'));action('split-mode',()=>setMode('split'));action('raw-mode',()=>setMode('raw'));action('publish',publish);action('remove',removePost);action('history-button',history);action('restore',restore);
+action('visual-mode',()=>chooseMode('visual'));action('edit',()=>chooseMode('body'));action('split-mode',()=>chooseMode('split'));action('raw-mode',()=>chooseMode('raw'));action('publish',publish);action('remove',removePost);action('history-button',history);action('restore',restore);
 action('upload',upload);action('insert-image',()=>insertImage($('images').value));action('check',checkStatus);
+action('save-draft',async()=>{if(!current)throw Error('请先打开或新建文章。');if(await queueDraft()===false)throw Error('草稿保存失败，请下载草稿。');status('本地草稿已保存，未公开发布。');});
 action('download',()=>{
   if(!current)throw Error('请先打开文章。');
   const url=URL.createObjectURL(new Blob([$('source').value],{type:'text/markdown;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download=current.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('source').addEventListener('input',()=>{syncFields();queueDraft();schedulePreview();});
-window.addEventListener('pagehide',()=>{token='';key=null;});
+window.addEventListener('pagehide',()=>{stopDeployment();token='';key=null;});
 window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});
 
 const metaIds=['meta-title','meta-description','meta-date','meta-tags','meta-key'];
@@ -307,10 +337,11 @@ function syncFields(){
  }catch{$('meta-notice').textContent='源码中的 YAML 无效，请在完整源码模式修复。';}
 }
 function schedulePreview(){clearTimeout(previewTimer);revision++;scheduleVisual();if(mode==='split'){previewTimer=setTimeout(()=>preview().catch(e=>status(e.message,true)),200);}}
+function chooseMode(next){setMode(next);prefs.mode=mode;persistPrefs();}
 function setMode(next){
  if(next!=='raw'&&current){try{split($('source').value);}catch(e){status(e.message,true);next='raw';}}
  if(mode==='raw'&&next!=='raw')syncFields();if(mode!==next&&next==='visual')visualUndo=[];mode=next;revision++;
- $('editor-grid').dataset.mode=mode;$('visual-editor').hidden=mode!=='visual';$('visual-tools').hidden=mode!=='visual';$('source').hidden=mode!=='raw';$('body-editor').hidden=!(mode==='body'||mode==='split');$('preview').hidden=mode!=='split';$('format-bar').hidden=mode==='raw'||mode==='visual';
+ $('editor-grid').dataset.mode=mode;$('visual-editor').hidden=mode!=='visual';$('visual-tools').hidden=mode!=='visual';$('source').hidden=mode!=='raw';$('body-editor').hidden=!(mode==='body'||mode==='split');$('preview').hidden=mode!=='split';$('split-divider').hidden=mode!=='split';$('sync-scroll').hidden=mode!=='split';$('format-bar').hidden=mode==='raw'||mode==='visual';
  for(const [id,m] of [['visual-mode','visual'],['edit','body'],['split-mode','split'],['raw-mode','raw']])$(id).setAttribute('aria-pressed',String(mode===m));
  for(const id of metaIds)$(id).disabled=mode==='raw';$('tag-input').disabled=mode==='raw';$('tag-add').disabled=mode==='raw';renderTags();
  schedulePreview();
@@ -339,11 +370,11 @@ try{document.documentElement.dataset.theme=localStorage.getItem('blog-theme')===
 $('theme').addEventListener('click',()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=theme;try{localStorage.setItem('blog-theme',theme);}catch{}});
 
 const layout=document.querySelector('.studio-layout');
-function togglePanel(panel,hide){layout.classList.toggle('hide-'+panel,hide);if(panel==='details')$('toggle-details').setAttribute('aria-pressed',String(!hide));if(panel==='library')$('toggle-library').setAttribute('aria-pressed',String(!hide));}
+function togglePanel(panel,hide){layout.classList.toggle('hide-'+panel,hide);prefs[panel==='details'?'hideDetails':'hideLibrary']=hide;persistPrefs();if(panel==='details')$('toggle-details').setAttribute('aria-pressed',String(!hide));if(panel==='library')$('toggle-library').setAttribute('aria-pressed',String(!hide));}
 $('toggle-details').addEventListener('click',()=>togglePanel('details',!layout.classList.contains('hide-details')));
 $('close-details').addEventListener('click',()=>togglePanel('details',true));
 $('toggle-library').addEventListener('click',()=>togglePanel('library',!layout.classList.contains('hide-library')));
-togglePanel('details',true);$('toggle-library').setAttribute('aria-pressed','true');
+togglePanel('details',prefs.hideDetails);togglePanel('library',prefs.hideLibrary);
 
 let activeVisual=null,visualUndo=[],visualTimer,visualRevision=0,blockContext=null,renderedBody=null,renderedPath=null;
 function scheduleVisual(){
@@ -503,4 +534,48 @@ for(const b of document.querySelectorAll('[data-block-format]'))b.addEventListen
  const format=formats[b.dataset.blockFormat],el=$('block-source');if(!format||!blockContext)return;
  const [a,z]=format,start=el.selectionStart,end=el.selectionEnd;
  el.setRangeText(a+el.value.slice(start,end)+z,start,end,'end');el.focus();
+});
+
+const grid=$('editor-grid'),divider=$('split-divider'),sourcePane=$('body-editor'),previewPane=$('preview');
+function updateSplit(value){
+ prefs.split=clampSplit(value);
+ grid.style.setProperty('--split-left',prefs.split+'%');
+ divider.setAttribute('aria-valuenow',String(prefs.split));
+}
+updateSplit(prefs.split);
+divider.addEventListener('pointerdown',event=>{
+ if(event.button!==0||mode!=='split')return;
+ event.preventDefault();divider.setPointerCapture(event.pointerId);divider.classList.add('dragging');
+});
+divider.addEventListener('pointermove',event=>{
+ if(!divider.hasPointerCapture(event.pointerId))return;
+ const rect=grid.getBoundingClientRect();if(rect.width>0)updateSplit(100*(event.clientX-rect.left)/rect.width);
+});
+for(const type of ['pointerup','pointercancel','lostpointercapture'])divider.addEventListener(type,()=>{divider.classList.remove('dragging');persistPrefs();});
+divider.addEventListener('keydown',event=>{
+ const shifts={ArrowLeft:-2,ArrowRight:2,Home:25-prefs.split,End:75-prefs.split};
+ if(!Object.prototype.hasOwnProperty.call(shifts,event.key))return;
+ event.preventDefault();updateSplit(prefs.split+shifts[event.key]);persistPrefs();
+});
+$('sync-scroll').setAttribute('aria-pressed',String(prefs.syncScroll));
+let scrollLock=null,scrollUnlock;
+function syncPanes(from,to){
+ if(mode!=='split'||!prefs.syncScroll||scrollLock===from||matchMedia('(max-width:820px)').matches)return;
+ const y=scrollTarget(scrollFraction(from.scrollTop,from.scrollHeight,from.clientHeight),to.scrollHeight,to.clientHeight);
+ if(Math.abs(to.scrollTop-y)<2)return;
+ scrollLock=to;clearTimeout(scrollUnlock);to.scrollTop=y;scrollUnlock=setTimeout(()=>{scrollLock=null;},100);
+}
+sourcePane.addEventListener('scroll',()=>syncPanes(sourcePane,previewPane),{passive:true});
+previewPane.addEventListener('scroll',()=>syncPanes(previewPane,sourcePane),{passive:true});
+$('sync-scroll').addEventListener('click',()=>{
+ prefs.syncScroll=!prefs.syncScroll;$('sync-scroll').setAttribute('aria-pressed',String(prefs.syncScroll));persistPrefs();
+ if(prefs.syncScroll)syncPanes(sourcePane,previewPane);
+});
+window.addEventListener('keydown',event=>{
+ if(!token||busy||event.isComposing||document.querySelector('dialog[open]')||!(event.ctrlKey||event.metaKey)||event.altKey)return;
+ const k=event.key.toLowerCase();
+ if(k==='s'){event.preventDefault();$('save-draft').click();}
+ if(k==='z'&&!event.shiftKey&&mode==='visual'&&!activeVisual&&!event.target?.matches?.('input,textarea,[contenteditable=true],[contenteditable=plaintext-only]')&&visualUndo.length){
+  event.preventDefault();$('visual-undo').click();
+ }
 });

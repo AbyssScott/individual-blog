@@ -25,3 +25,10 @@ test('HTML and dangerous link protocols cannot execute',async()=>{
  const html=await renderVisual('a <script>alert(1)</script> [bad](javascript:alert%281%29)');
  assert.doesNotMatch(html,/<script|href="javascript:/i);
 });
+
+test('existing HTML figure renders without exposing editor attributes or unsafe content',async()=>{
+ const src='<figure>\n<img src="/individual-blog/images/a.png" alt="Cover" onerror="alert(1)" data-edit-start="9">\n<figcaption>Figure 1.</figcaption>\n</figure>';
+ const html=await renderVisual(src);
+ assert.match(html,/<figure>/);assert.match(html,/<figcaption>Figure 1\.<\/figcaption>/);
+ assert.match(html,/data-block-start="0"/);assert.doesNotMatch(html,/onerror|data-edit-start="9"/);
+});

@@ -3,7 +3,7 @@ export function clampSplit(value){
 }
 export function normalizePrefs(value){
  const p=value&&typeof value==='object'?value:{};
- return {mode:['visual','body','split','raw'].includes(p.mode)?p.mode:'visual',
+ return {mode:['visual','rich','body','split','raw'].includes(p.mode)?p.mode:'visual',
  hideDetails:typeof p.hideDetails==='boolean'?p.hideDetails:true,
  hideLibrary:typeof p.hideLibrary==='boolean'?p.hideLibrary:false,
  syncScroll:typeof p.syncScroll==='boolean'?p.syncScroll:true,

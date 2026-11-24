@@ -13,6 +13,10 @@ export const richSchema=new Schema({
   doc:{content:'block+'},
   paragraph:{group:'block',content:'inline*',attrs:{origin},parseDOM:[{tag:'p'}],toDOM:()=>['p',0]},
   heading:{group:'block',content:'inline*',attrs:{origin,level:{default:2}},defining:true,parseDOM:[1,2,3,4,5,6].map(level=>({tag:'h'+level,attrs:{level}})),toDOM:n=>['h'+n.attrs.level,0]},
+  blockquote:{group:'block',content:'paragraph+',attrs:{origin},defining:true,parseDOM:[{tag:'blockquote'}],toDOM:()=>['blockquote',0]},
+  bullet_list:{group:'block',content:'list_item+',attrs:{origin},parseDOM:[{tag:'ul'}],toDOM:()=>['ul',0]},
+  ordered_list:{group:'block',content:'list_item+',attrs:{origin,start:{default:1}},parseDOM:[{tag:'ol',getAttrs:dom=>({start:Number(dom.getAttribute('start')||1)})}],toDOM:n=>['ol',{start:n.attrs.start},0]},
+  list_item:{content:'paragraph+',defining:true,parseDOM:[{tag:'li'}],toDOM:()=>['li',0]},
   protected:{group:'block',atom:true,selectable:true,attrs:{origin,raw:{default:''},kind:{default:'复杂区块'}},toDOM:()=>['div',{'class':'rich-protected'},'Markdown 区块']},
   inlineMath:{group:'inline',inline:true,atom:true,selectable:true,attrs:{value:{default:''}},toDOM:n=>['span',{'class':'rich-inline-math'},n.attrs.value]},
   hardBreak:{group:'inline',inline:true,selectable:false,parseDOM:[{tag:'br'}],toDOM:()=>['br']},
@@ -46,6 +50,14 @@ function makeBlock(n,raw,id){
  if(n.type==='paragraph'||n.type==='heading'){
   try{return S.nodes[n.type].createChecked(n.type==='heading'?{origin:id,level:n.depth}:{origin:id},inline(n.children));}catch{}
  }
+ try{
+  const paragraph=p=>{if(p.type!=='paragraph')throw Error('复杂嵌套区块');return S.nodes.paragraph.createChecked(null,inline(p.children));};
+  if(n.type==='blockquote')return S.nodes.blockquote.createChecked({origin:id},n.children.map(paragraph));
+  if(n.type==='list'&&!n.spread&&n.children.every(i=>!i.spread&&i.checked==null&&i.children.length<=1)){
+   const items=n.children.map(i=>S.nodes.list_item.createChecked(null,i.children.length?[paragraph(i.children[0])]:[S.nodes.paragraph.create()]));
+   return n.ordered?S.nodes.ordered_list.createChecked({origin:id,start:n.start??1},items):S.nodes.bullet_list.createChecked({origin:id},items);
+  }
+ }catch{}
  return S.nodes.protected.create({origin:id,raw,kind:n.type});
 }
 export function readRich(source){
@@ -80,22 +92,33 @@ function toInline(node){
 }
 function serializeBlock(node){
  if(node.type===S.nodes.protected)return node.attrs.raw;
- const n={type:node.type.name,children:toInline(node)};
- if(n.type==='heading')n.depth=node.attrs.level;
+ if(node.type===S.nodes.blockquote&&!node.textContent&&!node.content.content.some(p=>p.content.size))return '';
+ function toBlock(n){
+  const name=n.type.name;
+  if(name==='blockquote'){const children=[];n.forEach(p=>{if(p.content.size)children.push(toBlock(p));});return {type:'blockquote',children};}
+  if(name==='bullet_list'||name==='ordered_list'){
+   const children=[];n.forEach(item=>{const paragraphs=[];item.forEach(p=>{if(p.content.size)paragraphs.push(toBlock(p));});children.push({type:'listItem',spread:false,children:paragraphs});});
+   return {type:'list',ordered:name==='ordered_list',start:name==='ordered_list'?n.attrs.start:null,spread:false,children};
+  }
+  const b={type:name,children:toInline(n)};if(name==='heading')b.depth=n.attrs.level;return b;
+ }
+ const n=toBlock(node);
  return toMarkdown({type:'root',children:[n]},{extensions:[gfmToMarkdown(),mathToMarkdown()],bullet:'-',emphasis:'*',strong:'*'}).replace(/\n$/,'');
 }
 function meaningful(doc){const out=[];doc.forEach(n=>{if(n.type!==S.nodes.paragraph||n.content.size)out.push(n);});return out;}
 function signature(doc){
- return JSON.stringify(meaningful(doc).map(n=>{
-  // ProseMirror's toJSON() shares the node's attrs object. Clone before
-  // removing editor-only metadata, or validation mutates the live document.
-  const j=JSON.parse(JSON.stringify(n.toJSON()));
+ function normalize(j){
   if(j.attrs){delete j.attrs.origin;if(!Object.keys(j.attrs).length)delete j.attrs;}
-  const last=j.content?.at(-1);
-  if(last?.type==='text'&&!last.marks?.length){last.text=last.text.replace(/[ \t]+$/,'');if(!last.text)j.content.pop();}
+  if(j.content)j.content=j.content.map(normalize);
+  if(j.type==='blockquote'&&j.content)j.content=j.content.filter(n=>n.type!=='paragraph'||n.content?.length);
+  if(j.type==='paragraph'||j.type==='heading'){
+   const last=j.content?.at(-1);
+   if(last?.type==='text'&&!last.marks?.length){last.text=last.text.replace(/[ \t]+$/,'');if(!last.text)j.content.pop();}
+  }
   if(j.content?.length===0)delete j.content;
   return j;
- }).filter(n=>n.type!=='paragraph'||n.content?.length));
+ }
+ return JSON.stringify(meaningful(doc).map(n=>normalize(JSON.parse(JSON.stringify(n.toJSON())))).filter(n=>!['paragraph','blockquote'].includes(n.type)||n.content?.length));
 }
 export function serializeRich(doc,context){
  if(doc.eq(context.doc))return context.source;

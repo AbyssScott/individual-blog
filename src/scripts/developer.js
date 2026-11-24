@@ -71,7 +71,8 @@ async function refreshPosts() {
 }
 async function refreshImages() {
   const files=await repoApi('/contents/public/images?ref='+branch);
-  showOptions($('images'), files.filter(f=>f.type==='file'&&/\.(png|jpe?g|webp|gif)$/i.test(f.name)), f=>f.name, f=>f.name);
+  showOptions($('images'), files.filter(f=>f.type==='file'&&/^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.(png|jpe?g|webp|gif)$/i.test(f.name)), f=>f.name, f=>f.name);
+  updateAssetPreview();
 }
 const storageKey=p=>'blog-developer-encrypted-draft-v1:'+p;
 async function storeDraft(p,text,baselineSha,k=key){
@@ -208,6 +209,7 @@ async function restore() {
 function insertImage(name) {
   if(!current)throw Error('请先打开一篇文章。');
   if(!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.(png|jpe?g|webp|gif)$/i.test(name))throw Error('图片名称无效。');
+  if(mode==='rich'&&rich){if(!rich.insertImage(base+'images/'+encodeURIComponent(name)))throw Error('图片已存在于编辑器，但 Markdown 转换尚未完成。');return;}
   setMode('body');const source=$('body-editor');
   source.setRangeText('\n![图片]('+base+'images/'+encodeURIComponent(name)+')\n',source.selectionStart,source.selectionEnd,'end');
   source.focus();bodyChanged();
@@ -312,10 +314,13 @@ function visibleEntries(){
 function renderLibrary(){
  const el=$('post-list'),q=$('search-post').value.trim().toLowerCase();el.replaceChildren();
  const all=visibleEntries();
+ const order=$('sort-posts').value;
+ if(order==='old')all.sort((a,b)=>String(a.meta.date||'').localeCompare(String(b.meta.date||''))||a.path.localeCompare(b.path));
+ if(order==='title')all.sort((a,b)=>String(a.meta.title||a.path).localeCompare(String(b.meta.title||b.path)));
  showOptions($('posts'),all,x=>x.meta.title||x.path,x=>x.path);if(current)$('posts').value=current;
  for(const lang of ['zh','en']){
   if(filter!=='all'&&filter!==lang)continue;
-  const rows=all.filter(x=>x.path.startsWith(lang+'/')&&(stateFilter==='all'||(stateFilter==='draft'?x.draft:x.published))&&String((x.meta.title||'')+' '+x.path).toLowerCase().includes(q));
+  const rows=all.filter(x=>x.path.startsWith(lang+'/')&&(stateFilter==='all'||(stateFilter==='draft'?x.draft:x.published))&&String((x.meta.title||'')+' '+x.path+' '+(Array.isArray(x.meta.tags)?x.meta.tags.join(' '):'')).toLowerCase().includes(q));
   if(!rows.length)continue;
   const group=document.createElement('span');group.className='group';group.textContent=lang==='zh'?'中文文章':'English articles';el.append(group);
   for(const item of rows){
@@ -604,12 +609,12 @@ function destroyRich(){
 function mountRich(){
  if(rich||!current)return;
  try{
-  richState('实验模式 · 复杂区块双击编辑');
+  richState('复杂区块双击编辑');
   rich=createRichEditor({
    mount:$('rich-editor'),source:$('body-editor').value,base,editable:!busy,
    onChange(next){$('body-editor').value=next;bodyChanged();},
    onError(message){richState(message,true);},
-   onValid(){richState('实验模式 · 复杂区块双击编辑');},
+   onValid(){richState('复杂区块双击编辑');},
    onState(active){for(const b of document.querySelectorAll('[data-rich]'))if(b.dataset.rich in active)b.setAttribute('aria-pressed',String(active[b.dataset.rich]));},
    onBlockEdit(context){if(!finishRich())return;richBlock={...context,path:current};$('rich-block-source').value=context.raw;$('rich-block-dialog').showModal();$('rich-block-source').focus();}
   });
@@ -656,6 +661,7 @@ $('backup-import').addEventListener('click',()=>backupAction(async()=>{
  await refreshPosts();
  const existing=new Set(entries.filter(e=>localStorage.getItem(storageKey(e.path))!==null).map(e=>e.path));
  const remote=new Map(library.map(e=>[e.path,e.sha??'unverified']));
+ if(current&&remote.get(current)!==sha&&remote.has(current))existing.add(current);
  const plan=planRestore(entries,existing,remote);
  let saved=0,opened=false;const failed=[];
  for(const e of plan.restore){
@@ -670,3 +676,13 @@ $('backup-import').addEventListener('click',()=>backupAction(async()=>{
  $('backup-result').textContent='已恢复 '+saved+' 篇，跳过 '+plan.skipped.length+' 篇，失败 '+failed.length+' 篇。'+[...plan.skipped.map(e=>e.path+'：'+e.reason),...failed].map(x=>'\n'+x).join('')+'\n未发布任何文章。';
  $('backup-password').value='';$('backup-confirm-password').value='';
 }));
+
+function updateAssetPreview(){
+ const name=$('images').value,img=$('asset-preview');
+ img.hidden=true;img.removeAttribute('src');$('asset-name').textContent=name||'暂无图片';
+ if(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.(png|jpe?g|webp|gif)$/i.test(name)){img.hidden=false;img.src=base+'images/'+encodeURIComponent(name);}
+}
+$('images').addEventListener('change',updateAssetPreview);
+$('asset-preview').addEventListener('error',()=>{$('asset-preview').hidden=true;$('asset-name').textContent=$('images').value+' · 网站尚未生成缩略图';});
+$('sort-posts').addEventListener('change',renderLibrary);
+$('rich-images').addEventListener('click',()=>{togglePanel('details',false);$('image-details').open=true;$('images').focus();});

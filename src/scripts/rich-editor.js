@@ -1,7 +1,8 @@
 import {Fragment,Slice} from 'prosemirror-model';
 import {EditorState} from 'prosemirror-state';
 import {EditorView} from 'prosemirror-view';
-import {baseKeymap,toggleMark,setBlockType,splitBlockKeepMarks} from 'prosemirror-commands';
+import {baseKeymap,toggleMark,setBlockType,splitBlockKeepMarks,wrapIn,lift,chainCommands} from 'prosemirror-commands';
+import {wrapInList,splitListItem,liftListItem} from 'prosemirror-schema-list';
 import {keymap} from 'prosemirror-keymap';
 import {history,undo,redo} from 'prosemirror-history';
 import katex from 'katex';
@@ -10,9 +11,10 @@ import {renderVisual} from './visual-editor.js';
 export function createRichEditor({mount,source,base,onChange,onError,onBlockEdit,onState,onValid,editable=true}){
  const context=readRich(source);let view,disposed=false,enabled=editable,last=source,invalid=false;
  const mark=name=>toggleMark(S.marks[name]);
+ function ancestor(type){const p=view.state.selection.$from;for(let i=p.depth;i>0;i--)if(p.node(i).type===type)return true;return false;}
  function command(name){
   if(!enabled||disposed)return;
-  const commands={bold:mark('strong'),italic:mark('em'),strike:mark('strike'),code:mark('code'),paragraph:setBlockType(S.nodes.paragraph),h2:setBlockType(S.nodes.heading,{level:2}),h3:setBlockType(S.nodes.heading,{level:3}),undo,redo};
+  const commands={bold:mark('strong'),italic:mark('em'),strike:mark('strike'),code:mark('code'),paragraph:setBlockType(S.nodes.paragraph),h2:setBlockType(S.nodes.heading,{level:2}),h3:setBlockType(S.nodes.heading,{level:3}),quote:ancestor(S.nodes.blockquote)?lift:wrapIn(S.nodes.blockquote),bullet:ancestor(S.nodes.list_item)?liftListItem(S.nodes.list_item):wrapInList(S.nodes.bullet_list),ordered:ancestor(S.nodes.list_item)?liftListItem(S.nodes.list_item):wrapInList(S.nodes.ordered_list),undo,redo};
   if(name==='link'){
    const {from,to,empty}=view.state.selection;
    if(empty){onError('请先选中链接文字。');return;}
@@ -23,6 +25,10 @@ export function createRichEditor({mount,source,base,onChange,onError,onBlockEdit
    let tr=view.state.tr.removeMark(from,to,S.marks.link);
    if(url)tr=tr.addMark(from,to,S.marks.link.create({href:url,title:prior?.attrs.title??null}));
    view.dispatch(tr);view.focus();return;
+  }
+  if(name==='table'){
+   const raw='| 列 1 | 列 2 |\n| --- | --- |\n| 内容 | 内容 |';
+   view.dispatch(view.state.tr.replaceSelectionWith(S.nodes.protected.create({raw,kind:'table'}),false));view.focus();return;
   }
   if(name==='math'){
    const latex=window.prompt('输入行内 LaTeX 公式','x^2');if(!latex?.trim())return;
@@ -69,7 +75,7 @@ export function createRichEditor({mount,source,base,onChange,onError,onBlockEdit
   });
   return {dom,ignoreMutation:()=>true,stopEvent:e=>e.type==='dblclick'};
  }
- const state=EditorState.create({schema:S,doc:context.doc,plugins:[history(),keymap({'Mod-z':undo,'Mod-Shift-z':redo,'Mod-y':redo,'Mod-b':mark('strong'),'Mod-i':mark('em'),Enter:splitBlockKeepMarks}),keymap(baseKeymap)]});
+ const state=EditorState.create({schema:S,doc:context.doc,plugins:[history(),keymap({'Mod-z':undo,'Mod-Shift-z':redo,'Mod-y':redo,'Mod-b':mark('strong'),'Mod-i':mark('em'),'Mod-k':()=>{command('link');return true;},Enter:chainCommands(splitListItem(S.nodes.list_item),splitBlockKeepMarks)}),keymap(baseKeymap)]});
  view=new EditorView(mount,{
   state,editable:()=>enabled,
   attributes:{class:'rich-document',spellcheck:'false','aria-label':'实验性富文本编辑器'},
@@ -90,7 +96,14 @@ export function createRichEditor({mount,source,base,onChange,onError,onBlockEdit
  });
  notify();
  return {
-  command,flush:()=>!disposed&&synchronize(),hasInvalid:()=>invalid,
+  command,insertImage(url,alt='图片'){
+   if(disposed)return false;
+   const raw='!['+alt.replace(/[\\\[\]\r\n]/g,' ')+']('+url+')';
+   // Resource uploads run under the outer action lock. Apply one intentional
+   // transaction without enabling keyboard input while the request is pending.
+   const was=enabled;enabled=true;try{const $to=view.state.selection.$to,pos=$to.depth?$to.after(1):$to.pos;view.dispatch(view.state.tr.insert(pos,S.nodes.protected.create({raw,kind:'paragraph'})));}finally{enabled=was;}
+   if(was)view.focus();return !invalid;
+  },flush:()=>!disposed&&synchronize(),hasInvalid:()=>invalid,
   setEditable(value){if(enabled===value)return;enabled=value;if(!disposed)view.setProps({editable:()=>enabled});},
   destroy(){disposed=true;view.destroy();mount.replaceChildren();},
   replaceBlock(pos,raw,replacement){

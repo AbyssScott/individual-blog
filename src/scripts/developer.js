@@ -142,7 +142,7 @@ async function preview() {
     else img.src=url.href;
   }
   for(const link of content.querySelectorAll('a')) link.removeAttribute('href');
-  if(id===revision&&p===current&&(mode==='preview'||mode==='split'))$('preview').replaceChildren(h,content);
+  if(id===revision&&p===current&&mode==='split')$('preview').replaceChildren(h,content);
 }
 async function publish() {
   if(!current)throw Error('请先打开或新建文章。');
@@ -246,7 +246,7 @@ function action(id,fn) {
   });
 }
 action('connect',login);action('logout',logout);action('open',()=>openPost($('posts').value));action('new',newPost);
-action('visual-mode',()=>setMode('visual'));action('edit',()=>setMode('body'));action('preview-button',()=>setMode('preview'));action('split-mode',()=>setMode('split'));action('raw-mode',()=>setMode('raw'));action('publish',publish);action('remove',removePost);action('history-button',history);action('restore',restore);
+action('visual-mode',()=>setMode('visual'));action('edit',()=>setMode('body'));action('split-mode',()=>setMode('split'));action('raw-mode',()=>setMode('raw'));action('publish',publish);action('remove',removePost);action('history-button',history);action('restore',restore);
 action('upload',upload);action('insert-image',()=>insertImage($('images').value));action('check',checkStatus);
 action('download',()=>{
   if(!current)throw Error('请先打开文章。');
@@ -286,12 +286,12 @@ function syncFields(){
  $('article-title').textContent=String(meta.title||'未命名文章');$('language').textContent=meta.lang==='zh'?'中文文章':'English article';$('meta-notice').textContent='属性修改只影响当前语言版本。';updateCounterpart();updateCount();renderTags();
  }catch{$('meta-notice').textContent='源码中的 YAML 无效，请在完整源码模式修复。';}
 }
-function schedulePreview(){clearTimeout(previewTimer);revision++;scheduleVisual();if(mode==='split'||mode==='preview'){previewTimer=setTimeout(()=>preview().catch(e=>status(e.message,true)),200);}}
+function schedulePreview(){clearTimeout(previewTimer);revision++;scheduleVisual();if(mode==='split'){previewTimer=setTimeout(()=>preview().catch(e=>status(e.message,true)),200);}}
 function setMode(next){
  if(next!=='raw'&&current){try{split($('source').value);}catch(e){status(e.message,true);next='raw';}}
  if(mode==='raw'&&next!=='raw')syncFields();if(mode!==next&&next==='visual')visualUndo=[];mode=next;revision++;
- $('editor-grid').dataset.mode=mode;$('visual-editor').hidden=mode!=='visual';$('visual-tools').hidden=mode!=='visual';$('source').hidden=mode!=='raw';$('body-editor').hidden=!(mode==='body'||mode==='split');$('preview').hidden=!(mode==='preview'||mode==='split');$('format-bar').hidden=mode==='raw'||mode==='preview'||mode==='visual';
- for(const [id,m] of [['visual-mode','visual'],['edit','body'],['split-mode','split'],['preview-button','preview'],['raw-mode','raw']])$(id).setAttribute('aria-pressed',String(mode===m));
+ $('editor-grid').dataset.mode=mode;$('visual-editor').hidden=mode!=='visual';$('visual-tools').hidden=mode!=='visual';$('source').hidden=mode!=='raw';$('body-editor').hidden=!(mode==='body'||mode==='split');$('preview').hidden=mode!=='split';$('format-bar').hidden=mode==='raw'||mode==='visual';
+ for(const [id,m] of [['visual-mode','visual'],['edit','body'],['split-mode','split'],['raw-mode','raw']])$(id).setAttribute('aria-pressed',String(mode===m));
  for(const id of metaIds)$(id).disabled=mode==='raw';$('tag-input').disabled=mode==='raw';$('tag-add').disabled=mode==='raw';renderTags();
  schedulePreview();
 }

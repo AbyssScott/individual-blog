@@ -44,3 +44,15 @@ test('typing and Enter split preserve text and protected formula',async()=>{
  assert.equal(parsed.child(2).attrs.raw,'$$\nx^2\n$$');
  assert.equal(parsed.child(3).textContent,'Last paragraph.');
 });
+
+test('repeated validation never mutates document or origin attributes',()=>{
+ const source='\nFirst.\n\n$$\nx^2\n$$\n\nLast.\n';
+ const context=readRich(source),first=context.doc.firstChild;
+ const doc=context.doc.copy(context.doc.content.replaceChild(0,first.type.create(first.attrs,S.text('Changed.'))));
+ const originalJSON=JSON.stringify(context.doc.toJSON()),changedJSON=JSON.stringify(doc.toJSON());
+ for(let i=0;i<4;i++)assert.equal(serializeRich(doc,context),source.replace('First.','Changed.'));
+ assert.equal(JSON.stringify(context.doc.toJSON()),originalJSON);
+ assert.equal(JSON.stringify(doc.toJSON()),changedJSON);
+ assert.equal(doc.firstChild.attrs.origin,0);
+ assert.equal(doc.child(1).attrs.origin,1);
+});

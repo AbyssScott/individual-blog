@@ -87,7 +87,10 @@ function serializeBlock(node){
 function meaningful(doc){const out=[];doc.forEach(n=>{if(n.type!==S.nodes.paragraph||n.content.size)out.push(n);});return out;}
 function signature(doc){
  return JSON.stringify(meaningful(doc).map(n=>{
-  const j=n.toJSON();if(j.attrs)delete j.attrs.origin;
+  // ProseMirror's toJSON() shares the node's attrs object. Clone before
+  // removing editor-only metadata, or validation mutates the live document.
+  const j=JSON.parse(JSON.stringify(n.toJSON()));
+  if(j.attrs){delete j.attrs.origin;if(!Object.keys(j.attrs).length)delete j.attrs;}
   const last=j.content?.at(-1);
   if(last?.type==='text'&&!last.marks?.length){last.text=last.text.replace(/[ \t]+$/,'');if(!last.text)j.content.pop();}
   if(j.content?.length===0)delete j.content;

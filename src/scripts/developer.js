@@ -1,0 +1,235 @@
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import remarkRehype from 'remark-rehype';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import rehypeKatex from 'rehype-katex';
+import rehypeStringify from 'rehype-stringify';
+import { parse as parseYaml } from 'yaml';
+
+const $ = id => document.getElementById(id);
+const repo = 'AbyssScott/individual-blog';
+const branch = 'main';
+const root = 'src/content/posts/';
+const base = document.querySelector('.dev').dataset.base;
+const validPost = /^(zh|en)\/[a-z0-9][a-z0-9-]*\.md$/;
+let token = '', key = null, current = '', sha = null, original = '', lastCommit = '', busy = false, draftQueue = Promise.resolve();
+const status = (message, error = false) => { $('status').textContent = message; $('status').dataset.error = String(error); };
+const enc = new TextEncoder();
+const dec = new TextDecoder('utf-8', { fatal: true });
+function to64(bytes) { let s = ''; for (let i=0;i<bytes.length;i+=8192) s += String.fromCharCode(...bytes.subarray(i,i+8192)); return btoa(s); }
+function from64(value) { return Uint8Array.from(atob(value.replace(/\s/g,'')), ch => ch.charCodeAt(0)); }
+const filePath = p => p.split('/').map(encodeURIComponent).join('/');
+async function api(path, method='GET', body) {
+  if (!token) throw Error('请先验证管理员身份。');
+  const result = await fetch('https://api.github.com' + path, {
+    method, headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(body ? {'Content-Type':'application/json'} : {}) },
+    body: body ? JSON.stringify(body) : undefined, cache:'no-store', redirect:'error', credentials:'omit', referrerPolicy:'no-referrer'
+  });
+  if (!result.ok) {
+    if (result.status===409 || result.status===422) throw Error('GitHub 返回冲突或验证错误（'+result.status+'）。请先下载草稿，再重新加载最新版本，避免覆盖其他修改。');
+    throw Error('GitHub 请求失败（'+result.status+'）。请核对令牌权限、有效期及网络连接。');
+  }
+  return result.status===204 ? null : result.json();
+}
+const repoApi = (path, method, body) => api('/repos/'+repo+path,method,body);
+async function readPost(path, ref=branch) {
+  if (!validPost.test(path)) throw Error('无效文章路径。');
+  const f=await repoApi('/contents/'+filePath(root+path)+'?ref='+encodeURIComponent(ref));
+  if (f.type!=='file'||f.encoding!=='base64') throw Error('无法读取此 Markdown 文件。');
+  return {text:dec.decode(from64(f.content)),sha:f.sha};
+}
+function showOptions(el, values, label, value) {
+  el.replaceChildren(...values.map(x=>{const o=document.createElement('option');o.value=value(x);o.textContent=label(x);return o;}));
+}
+async function refreshPosts() {
+  const paths=(await Promise.all(['zh','en'].map(lang=>repoApi('/contents/'+root+lang+'?ref='+branch)))).flat()
+    .filter(f=>f.type==='file'&&validPost.test(f.path.slice(root.length))).map(f=>f.path.slice(root.length)).sort();
+  showOptions($('posts'), paths, p=>p,p=>p);
+  if(paths.includes(current)) $('posts').value=current;
+  return paths;
+}
+async function refreshImages() {
+  const files=await repoApi('/contents/public/images?ref='+branch);
+  showOptions($('images'), files.filter(f=>f.type==='file'&&/\.(png|jpe?g|webp|gif)$/i.test(f.name)), f=>f.name, f=>f.name);
+}
+const storageKey=p=>'blog-developer-encrypted-draft-v1:'+p;
+function queueDraft() {
+  const p=current, text=$('source').value, k=key, baseline=original;
+  if(!p||!k)return draftQueue;
+  draftQueue=draftQueue.catch(()=>{}).then(async()=>{
+    try {
+      if(text===baseline) localStorage.removeItem(storageKey(p));
+      else {
+        const iv=crypto.getRandomValues(new Uint8Array(12));
+        const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(p)},k,enc.encode(text));
+        localStorage.setItem(storageKey(p),JSON.stringify({iv:to64(iv),data:to64(new Uint8Array(ciphertext))}));
+      }
+      if(current===p&&$('source').value===text) $('draft-state').textContent=text===baseline?'无未保存修改':'草稿已加密保存在此浏览器，尚未发布。';
+    } catch { if(current===p)$('draft-state').textContent='本地草稿保存失败，请使用“下载草稿”。'; }
+  });
+  return draftQueue;
+}
+async function loadDraft(p) {
+  try {
+    const raw=localStorage.getItem(storageKey(p));if(!raw)return null;
+    const data=JSON.parse(raw);
+    return dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(data.iv),additionalData:enc.encode(p)},key,from64(data.data)));
+  } catch { status('此路径可能存在用其他令牌加密的草稿，无法解密。',true);return null; }
+}
+function editView() { $('source').hidden=false;$('preview').hidden=true;$('preview').replaceChildren(); }
+async function setArticle(p,text,blob) {
+  current=p;sha=blob;original=text;$('source').value=text;$('path').textContent=root+p;
+  $('remove').disabled=!blob;$('history-button').disabled=!blob;$('history').hidden=true;editView();
+  const draft=await loadDraft(p);
+  if(draft!==null&&draft!==text&&confirm('发现此文章的未发布本地草稿，是否恢复？')) $('source').value=draft;
+  $('draft-state').textContent=$('source').value===original?'无未保存修改':'已恢复本地草稿，尚未发布。';
+}
+async function openPost(p) { await queueDraft(); const f=await readPost(p);await setArticle(p,f.text,f.sha); }
+function split(text) {
+  const m=/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)([\s\S]*)$/.exec(text);
+  if(!m)throw Error('需要完整的 YAML frontmatter（---）。');
+  return {meta:parseYaml(m[1]),body:m[2]};
+}
+function validate(text,p) {
+  const {meta,body}=split(text);
+  if(!meta||typeof meta.title!=='string'||!meta.title.trim()||meta.lang!==p.split('/')[0]||
+    typeof meta.translationKey!=='string'||!meta.translationKey.trim()||
+    typeof meta.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(meta.date)||
+    Number.isNaN(Date.parse(meta.date))||new Date(meta.date).toISOString().slice(0,10)!==meta.date)
+    throw Error('请核对 title、lang、translationKey 和 YYYY-MM-DD 格式的有效日期。');
+  if(meta.draft!==undefined&&meta.draft!==false)throw Error('公开仓库中的 draft 文件仍然可见。私人草稿仅保存在浏览器；发布时请设置 draft: false。');
+  if(meta.tags!==undefined&&(!Array.isArray(meta.tags)||meta.tags.some(t=>typeof t!=='string')))throw Error('tags 必须是字符串数组。');
+  if(meta.description!==undefined&&typeof meta.description!=='string')throw Error('description 必须为字符串。');
+  return {meta,body};
+}
+const schema={...defaultSchema,attributes:{...defaultSchema.attributes,code:[...(defaultSchema.attributes.code||[]),['className','math-inline','math-display','language-math']]}};
+const renderer=unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(remarkRehype).use(rehypeSanitize,schema).use(rehypeKatex,{trust:false}).use(rehypeStringify);
+async function preview() {
+  if(!current)return;
+  const {meta,body}=split($('source').value);
+  const h=document.createElement('h1');h.textContent=String(meta?.title||'');
+  const content=document.createElement('div');
+  content.innerHTML=String(await renderer.process(body));
+  // Do not load third-party images or permit navigation from a preview.
+  for(const img of content.querySelectorAll('img')) {
+    const src=img.getAttribute('src')||'';
+    let url;try{url=new URL(src,location.origin+base);}catch{}
+    if(!url||url.origin!==location.origin||!url.pathname.startsWith(base+'images/'))img.removeAttribute('src');
+    else img.src=url.href;
+  }
+  for(const link of content.querySelectorAll('a')) link.removeAttribute('href');
+  $('preview').replaceChildren(h,content);$('source').hidden=true;$('preview').hidden=false;
+}
+async function publish() {
+  if(!current)throw Error('请先打开或新建文章。');
+  const p=current,text=$('source').value;
+  const {meta}=validate(text,p);
+  if(text===original&&sha)throw Error('没有需要发布的修改。');
+  if(!confirm('将文章公开发布到博客，并自动触发 GitHub Pages 构建？'))return;
+  const others=(await refreshPosts()).filter(x=>x!==p&&x.split('/')[0]===meta.lang);
+  for(const other of others) {
+    const f=await readPost(other);
+    if(split(f.text).meta.translationKey===meta.translationKey)throw Error('同一语言中 translationKey 已被 '+other+' 使用。');
+  }
+  const result=await repoApi('/contents/'+filePath(root+p),'PUT',{message:'Update blog post: '+p,content:to64(enc.encode(text)),branch,...(sha?{sha}:{})});
+  sha=result.content.sha;original=text;lastCommit=result.commit.sha;
+  await queueDraft();$('remove').disabled=false;$('history-button').disabled=false;$('check').disabled=false;
+  status('文章已提交，GitHub Pages 尚需完成构建。Commit: '+lastCommit.slice(0,7));
+  await refreshPosts();
+}
+async function newPost() {
+  await queueDraft();
+  const p=prompt('输入文章路径，例如 zh/my-new-post.md 或 en/my-new-post.md');
+  if(p===null)return;if(!validPost.test(p))throw Error('路径须为 zh/ 或 en/ 加英文小写 slug 和 .md。');
+  if((await refreshPosts()).includes(p))throw Error('该文章已经存在，请打开现有文章。');
+  const lang=p.split('/')[0],slug=p.split('/')[1].slice(0,-3);
+  const today=new Date().toISOString().slice(0,10);
+  const template='---\ntitle: "'+(lang==='zh'?'新文章':'New article')+'"\ndescription: ""\ndate: '+today+'\nlang: '+lang+'\ntranslationKey: '+slug+'\ntags: []\ndraft: false\n---\n\n';
+  await setArticle(p,template,null);
+}
+async function removePost() {
+  if(!sha||!current)return;const p=current;
+  if(prompt('删除会从博客移除文章，但历史记录仍公开。请输入完整路径 '+p+' 确认。')!==p)return;
+  const result=await repoApi('/contents/'+filePath(root+p),'DELETE',{message:'Remove blog post: '+p,sha,branch});
+  lastCommit=result.commit.sha;$('check').disabled=false;
+  await draftQueue;localStorage.removeItem(storageKey(p));current='';sha=null;original='';$('source').value='';$('path').textContent='';$('history').hidden=true;editView();$('remove').disabled=true;$('history-button').disabled=true;
+  status('删除已提交，等待网站构建。');await refreshPosts();
+}
+async function history() {
+  if(!sha||!current)return;
+  const commits=await repoApi('/commits?sha='+branch+'&per_page=30&path='+encodeURIComponent(root+current));
+  showOptions($('versions'),commits,c=>c.sha.slice(0,7)+' · '+c.commit.author.date.slice(0,10)+' · '+c.commit.message.split('\n')[0],c=>c.sha);
+  $('history').hidden=false;
+}
+async function restore() {
+  const ref=$('versions').value;if(!ref||!current)return;
+  if(!confirm('将所选历史版本载入编辑器？当前版本会被替换，但不会立即发布。'))return;
+  const f=await readPost(current,ref);$('source').value=f.text;editView();await queueDraft();status('已载入历史版本，请检查后手动发布。');
+}
+function insertImage(name) {
+  if(!current)throw Error('请先打开一篇文章。');
+  if(!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.(png|jpe?g|webp|gif)$/i.test(name))throw Error('图片名称无效。');
+  editView();const source=$('source');
+  source.setRangeText('\n![图片]('+base+'images/'+encodeURIComponent(name)+')\n',source.selectionStart,source.selectionEnd,'end');
+  source.focus();queueDraft();
+}
+async function upload() {
+  if(!current)throw Error('请先打开文章。');
+  const file=$('image-file').files[0];
+  if(!file||!/^image\/(png|jpeg|webp|gif)$/.test(file.type)||file.size>5*1024*1024)throw Error('请选择不超过 5 MB 的 PNG、JPEG、WebP 或 GIF 文件。');
+  const ext={ 'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'}[file.type];
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const signatures={png:[137,80,78,71,13,10,26,10],jpg:[255,216,255],gif:[71,73,70,56],webp:[82,73,70,70]};
+  if(!signatures[ext].every((b,i)=>bytes[i]===b)||(ext==='webp'&&String.fromCharCode(...bytes.slice(8,12))!=='WEBP'))throw Error('文件签名与图片类型不符。');
+  if(!confirm('图片将立即进入公开 GitHub 仓库，是否继续？'))return;
+  const name=crypto.randomUUID()+'.'+ext;
+  await repoApi('/contents/public/images/'+name,'PUT',{message:'Upload blog image '+name,content:to64(bytes),branch});
+  insertImage(name);await refreshImages();$('image-file').value='';status('图片已提交，网站构建后可见。');
+}
+async function checkStatus() {
+  if(!lastCommit)return;
+  const data=await repoApi('/actions/workflows/deploy.yml/runs?head_sha='+lastCommit+'&per_page=5');
+  const run=data.workflow_runs?.[0];
+  status(run?'发布任务：'+run.status+(run.conclusion?' / '+run.conclusion:'')+'。可通过发布记录查看详情。':'尚未找到构建任务，请稍后重新检查。');
+}
+async function login() {
+  token=$('token').value.trim();$('token').value='';
+  if(!token.startsWith('github_pat_')){token='';throw Error('请使用 fine-grained personal access token。');}
+  try {
+    const account=await api('/user');
+    if(account.id!==203394363||account.login.toLowerCase()!=='abyssscott')throw Error('不是博客所有者账号。');
+    const repository=await repoApi('');
+    if(repository.full_name.toLowerCase()!==repo.toLowerCase())throw Error('仓库验证失败。');
+    key=await crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',enc.encode(token)),{name:'AES-GCM'},false,['encrypt','decrypt']);
+    const posts=await refreshPosts();await refreshImages();
+    $('identity').textContent='已验证：'+account.login;
+    $('login').hidden=true;$('workspace').hidden=false;
+    const initial=new URLSearchParams(location.search).get('post');
+    if(initial&&posts.includes(initial))await openPost(initial);
+    else if(posts.length)await openPost(posts[0]);
+    else { $('remove').disabled=true;$('history-button').disabled=true; }
+    status('已连接 GitHub。保存时由 GitHub 强制执行仓库写入权限。');
+  } catch(error) {token='';key=null;$('login').hidden=false;$('workspace').hidden=true;throw error;}
+}
+async function logout() {
+  await queueDraft();token='';key=null;current='';sha=null;original='';lastCommit='';$('source').value='';$('token').value='';$('preview').replaceChildren();$('path').textContent='';$('history').hidden=true;$('check').disabled=true;$('workspace').hidden=true;$('login').hidden=false;status('已退出，令牌已从页面内存清除。');
+}
+function action(id,fn) {
+  $(id).addEventListener('click',async()=>{
+    if(busy)return;busy=true;const control=$(id);control.disabled=true;
+    try{await fn();}catch(e){status(e instanceof Error?e.message:'操作失败。',true);}
+    finally{busy=false;control.disabled=id==='check'?!lastCommit:id==='remove'||id==='history-button'?!sha:false;}
+  });
+}
+action('connect',login);action('logout',logout);action('open',()=>openPost($('posts').value));action('new',newPost);
+action('edit',editView);action('preview-button',preview);action('publish',publish);action('remove',removePost);action('history-button',history);action('restore',restore);
+action('upload',upload);action('insert-image',()=>insertImage($('images').value));action('check',checkStatus);
+action('download',()=>{
+  if(!current)throw Error('请先打开文章。');
+  const url=URL.createObjectURL(new Blob([$('source').value],{type:'text/markdown;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download=current.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+$('source').addEventListener('input',queueDraft);
+window.addEventListener('pagehide',()=>{token='';key=null;});

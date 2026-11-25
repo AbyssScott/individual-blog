@@ -39,7 +39,7 @@ Well, at least in my experience, the first two suggestions aren't particularly e
 
 **On the first suggestion.** As I understand it, the idea is to decide how much time to spend working on something today rather than how much work I must get done.
 
-But I think the problem here is that some tasks aren't so easily interrupted. Suppose I decide to spend three hours working on a paper every evening, from 8 to 11 p.m., and then go to bed. As luck would have it, **I come up with a promising argument at exactly 11 p.m.** The argument isn't fully developed yet, though, and I need a little more time to think through its logic and whether it's consistent with what I've written so far.
+But I think the problem here is that some tasks aren't so easily interrupted. Suppose I decide to spend three hours working on a paper every evening, from 8 to 11 p.m., and then go to bed. As luck would have it, **I spend the first two hours and forty minutes reading the literature without any clear idea of what my argument should be, only to come up with a promising one at 10:45 p.m.** But the argument isn't fully developed yet, and I might need another half hour to think through its logic and whether it's consistent with what I've written so far.
 
 At this point, my plan to go to bed on time is probably out the window. On the one hand, I'm worried that after a night's sleep (or perhaps a dream), I'll have forgotten much of my train of thought and won't be able to pick it up again the next day. On the other hand, even if I jot down the argument and actually get into bed, I'll probably keep thinking about it anyway and end up unable to sleep. I've found myself in this situation many times.
 

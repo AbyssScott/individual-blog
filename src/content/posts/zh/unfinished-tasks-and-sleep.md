@@ -1,0 +1,54 @@
+---
+title: "未完成的任务，以及我为什么总是熬夜"
+date: 2026-11-25
+lang: zh
+translationKey: unfinished-tasks-and-sleep
+tags: ["心理学", "健康", "生活"]
+draft: true
+---
+
+今天在 BBC 上看到一篇挺有意思的文章：
+
+[*Your brain is exhausted from too many unfinished tasks. Five simple steps can help.*](https://www.bbc.co.uk/future/article/20261123-why-unfinished-tasks-exhaust-our-brains-and-how-to-let-them-go)
+
+![BBC article: Your brain is exhausted from too many unfinished tasks](/individual-blog/images/unfinished-tasks-and-sleep-01.png)
+
+<small>Source: BBC (cover photo: Getty Images).</small>
+
+文章提到了心理学中的 **Zeigarnik effect（蔡格尼克效应）**。1927 年，心理学家 Bluma Zeigarnik 发表了一篇论文，发现相比于已经完成的任务，人们更容易记住那些在完成之前被打断的任务。尽管后续研究并未总能复现这一记忆效应，但不少研究发现，未完成的任务确实会持续占据我们的思绪。
+
+![BBC article excerpt on the Zeigarnik effect](/individual-blog/images/unfinished-tasks-and-sleep-02.png)
+
+<small>Source: BBC.</small>
+
+对此我深有体会。
+
+我经常因为到了晚上还没完成当天计划好的任务（比如写完 essay 的某个段落、做完一份习题集，或者复习完该复习的东西）而感到焦虑。即便已经很疲倦，我也很难睡得着觉。所以，在这种情况下，我通常会选择熬夜把它们全部搞定。当然，代价就是第二天如果没有早课，我也不知道自己会睡到几点；如果有早课，我就只能昏昏沉沉地去上课。
+
+我当然知道这种不规律的生活对身体不好。但问题就在这里：**我知道自己应该早点睡觉，却很难在还有事情没做完的时候心安理得地去睡觉。**
+
+所以，我想看看这篇 BBC 文章给出了什么建议。一共有五个：
+
+1. **Set time-based goals**
+2. **Switch off notifications**
+3. **Where possible, avoid project overlap**
+4. **Plan deadlines around holidays**
+5. **'The doorway effect': Create transition rituals**
+
+好吧，至少从我个人的经历来看，前两个建议似乎没有那么容易付诸实践。
+
+**关于第一个建议。** 我理解的意思大概是，与其规定自己今天必须完成多少任务，不如规定自己今天花多少时间在这些任务上。
+
+但我觉得这里的问题在于，很多时候，正在进行的任务并没有那么容易被打断。举个例子，假设我规定自己每天晚上花三个小时写论文，从八点写到十一点，然后去睡觉。很不巧，**我恰好在十一点的时候想出了一个不错的论点。** 但这个论点还不成熟，我需要再花一些时间琢磨它的逻辑，以及它是否与前面的论述一致。
+
+这个时候，准时睡觉的计划大概就要泡汤了。一方面，我担心自己睡一觉（或者做个梦）就把刚才的思路忘得差不多了，第二天也未必能重新接上；另一方面，即便我暂时把这个论点记下来，真的躺到了床上，恐怕还是会忍不住继续琢磨它，结果还是睡不着。类似的情况我遇到过很多次。
+
+**关于第二个建议。** 好吧，我从来不会关闭邮件通知。尤其是现在读研究生，我非常在意能否及时看到一些重要的邮件。我也清楚地知道，对于绝大多数邮件来说，晚几个小时，甚至第二天再看到，可能根本没有什么区别。但我心里就是接受不了。
+
+至于第三个和第四个建议，我暂时没有太多感想，因为同时处理多个项目和在假期期间集中赶 deadline 都不是我目前经常遇到的问题。所以略过。
+
+**第五个建议**涉及一个叫作 *doorway effect*（门口效应）的东西。文章建议人们通过一些过渡性的活动，在心理上将不同的任务区分开来，或者从工作状态切换到休息状态。
+
+这听上去倒是有些用。我觉得这有点像是“出去走走，换换脑子，换换心情，别老闷在屋里”的心理学版本。有时候我因为手头的事情感到焦虑，也确实会在校园里走一走。
+
+不过，我猜，我需要的可能不是更多关于如何早点睡觉的建议，而是**学会从心底接受这样一件事：一天结束了，但还有些事情没有做完。**

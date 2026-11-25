@@ -29,11 +29,11 @@ draft: false
 
 所以，我想看看这篇 BBC 文章给出了什么建议。一共有五个：
 
-1. **Set time-based goals**
-2. **Switch off notifications**
-3. **Where possible, avoid project overlap**
-4. **Plan deadlines around holidays**
-5. **'The doorway effect': Create transition rituals**
+1. **设定以时间为导向的目标**
+2. **关闭消息通知**
+3. **尽可能避免多个项目同时进行**
+4. **合理安排截止日期，避开假期**
+5. **利用“门口效应”：建立过渡仪式**
 
 好吧，至少从我个人的经历来看，前两个建议似乎没有那么容易付诸实践。
 

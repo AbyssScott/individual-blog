@@ -1,5 +1,5 @@
 ---
-title: "Thucydides, Historical Analogies, and the Limits of Theory"
+title: "Thucydides and the Politics of Theory"
 date: 2026-11-26
 lang: en
 translationKey: thucydides-and-the-limits-of-theory

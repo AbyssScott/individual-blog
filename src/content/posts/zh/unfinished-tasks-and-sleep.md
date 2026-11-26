@@ -7,7 +7,7 @@ tags: ["心理学", "健康", "生活"]
 draft: false
 ---
 
-今天在 BBC 上看到一篇挺有意思的文章：
+我今天在 BBC 上看到一篇挺有意思的文章：
 
 [*Your brain is exhausted from too many unfinished tasks. Five simple steps can help.*](https://www.bbc.co.uk/future/article/20261123-why-unfinished-tasks-exhaust-our-brains-and-how-to-let-them-go)
 

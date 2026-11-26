@@ -1,5 +1,5 @@
 ---
-title: "修昔底德、历史类比，以及理论的适用范围"
+title: "修昔底德与理论的政治"
 date: 2026-11-26
 lang: zh
 translationKey: thucydides-and-the-limits-of-theory
@@ -7,7 +7,7 @@ tags: ["政治理论", "历史类比", "IR", "历史", "因果推断"]
 draft: false
 ---
 
-今天在 APSR 的 [FirstView](https://www.cambridge.org/core/journals/american-political-science-review/firstview) 上看到一篇很有意思的文章：
+今天我在 APSR 的 [FirstView](https://www.cambridge.org/core/journals/american-political-science-review/firstview) 上看到一篇很有意思的文章：
 
 Mark D. Fisher (2026), [*The Limit of Nature: Thucydides and the Politics of Theory*](https://doi.org/10.1017/S000305542610224X).
 

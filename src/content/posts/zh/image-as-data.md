@@ -9,6 +9,8 @@ draft: false
 
 我在睡前看到了一篇刚发表在 *Political Analysis* 上的文章：[An Image Is Worth K Topics: A Visual Structural Topic Model with Pretrained Image Embeddings](https://doi.org/10.1017/pan.2026.10062)。
 
+![论文首页](/individual-blog/images/paper-first-page.png)
+
 这看上去很酷！
 
 我的一个观察是，随着 [Text as Data](https://doi.org/10.1093/pan/mps028) 及[结构主题模型](https://doi.org/10.1111/ajps.12103)等相关研究的发展，社会科学学者已经不再满足于仅仅分析文本，而是越来越多地尝试将其他能够反映人类行为和态度的信息转化为可用于实证研究的数据。这既包括人们的[面部表情](https://doi.org/10.1017/S0003055421000666)和[声音](https://doi.org/10.1017/S0003055419000467)，也包括[图片](https://doi.org/10.1017/pan.2023.32)、[视频](https://doi.org/10.5117/CCR2022.2.002.LU)等传播媒介。而这篇文章讨论的就是 **Image as Data**。

@@ -9,6 +9,8 @@ draft: false
 
 I came across a new paper in *Political Analysis* just before going to bed: [An Image Is Worth K Topics: A Visual Structural Topic Model with Pretrained Image Embeddings](https://doi.org/10.1017/pan.2026.10062).
 
+![First page of the paper](/individual-blog/images/paper-first-page.png)
+
 This looks pretty cool!
 
 One thing I've noticed is that, with the development of [Text as Data](https://doi.org/10.1093/pan/mps028) and related methods such as [structural topic models](https://doi.org/10.1111/ajps.12103), social scientists are no longer limiting themselves to analyzing text. They are increasingly finding ways to turn other forms of information about human behavior and attitudes into data for empirical research. These include people's [facial expressions](https://doi.org/10.1017/S0003055421000666) and [voices](https://doi.org/10.1017/S0003055419000467), as well as forms of media such as [images](https://doi.org/10.1017/pan.2023.32) and [videos](https://doi.org/10.5117/CCR2022.2.002.LU). This paper is about **Image as Data**.
